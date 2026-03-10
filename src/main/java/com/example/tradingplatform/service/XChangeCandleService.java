@@ -1,5 +1,6 @@
 package com.example.tradingplatform.service;
 
+import com.example.tradingplatform.exception.InvalidRequestException;
 import com.example.tradingplatform.exchange.ExchangeFactoryService;
 import com.example.tradingplatform.model.Candle;
 import lombok.AllArgsConstructor;
@@ -69,7 +70,7 @@ public class XChangeCandleService implements CandleService {
             case "h1" -> KlineInterval.h1;
             case "h4" -> KlineInterval.h4;
             case "d1" -> KlineInterval.d1;
-            default -> KlineInterval.d1;
+            default -> throw new InvalidRequestException("Unsupported interval: " + interval);
         };
     }
 

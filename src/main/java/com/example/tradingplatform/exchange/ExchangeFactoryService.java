@@ -1,5 +1,6 @@
 package com.example.tradingplatform.exchange;
 
+import com.example.tradingplatform.exception.InvalidRequestException;
 import org.knowm.xchange.Exchange;
 import org.knowm.xchange.ExchangeSpecification;
 import org.knowm.xchange.binance.BinanceExchange;
@@ -26,7 +27,7 @@ public class ExchangeFactoryService {
             case "ETHUSDT" -> new CurrencyPair("ETH", "USDT");
             case "SOLUSDT" -> new CurrencyPair("SOL", "USDT");
             case "BTCUSDT" -> new CurrencyPair("BTC", "USDT");
-            default -> new CurrencyPair("BTC", "USDT");
+            default -> throw new InvalidRequestException("Unsupported ticker: " + ticker);
         };
     }
 }
