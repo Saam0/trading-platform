@@ -8,7 +8,7 @@ import java.util.List;
 @Service
 public class FakeCandleService implements CandleService {
     @Override
-    public List<Candle> getCandles(String ticker) {
+    public List<Candle> getCandles(String ticker, String interval) {
         return switch (ticker.toUpperCase()) {
             case "ETHUSDT" -> getEthCandles();
             case "SOLUSDT" -> getSolCandles();
@@ -61,4 +61,6 @@ public class FakeCandleService implements CandleService {
                 new Candle("2026-03-10", 152, 158, 151, 157, 49698.6)
         );
     }
+
+
 }

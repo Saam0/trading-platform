@@ -12,41 +12,44 @@ import org.knowm.xchange.currency.CurrencyPair;
 import org.knowm.xchange.dto.marketdata.CandleStick;
 import org.knowm.xchange.dto.marketdata.CandleStickData;
 import org.knowm.xchange.service.trade.params.CandleStickDataParams;
+import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
+import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 
+@Primary
 @Service
 @AllArgsConstructor
-public class XChangeCandleService {
+public class XChangeCandleService implements CandleService {
+
     private final ExchangeFactoryService exchangeFactoryService;
 
-    public List<Candle> getCandles(String ticker) {
+    @Override
+    public List<Candle> getCandles(String ticker, String interval) {
         try {
             Exchange exchange = exchangeFactoryService.createBinanceExchange();
             CurrencyPair currencyPair = exchangeFactoryService.toCurrencyPair(ticker);
+            KlineInterval klineInterval = mapInterval(interval);
 
             BinanceMarketDataServiceRaw marketDataService =
                     (BinanceMarketDataServiceRaw) exchange.getMarketDataService();
 
             List<BinanceKline> klines = marketDataService.klines(
                     currencyPair,
-                    KlineInterval.d1,
+                    klineInterval,
                     30,
                     null,
                     null
             );
 
-            CandleStickData candleStickData =
-                    BinanceAdapters.adaptBinanceCandleStickData(klines, currencyPair);
-
             List<Candle> candles = new ArrayList<>();
 
-            for (CandleStick candleStick : candleStickData.getCandleSticks()) {
-                candles.add(mapToCandle(candleStick));
+            for (BinanceKline kline : klines) {
+                candles.add(mapToCandle(kline, interval));
             }
 
             return candles;
@@ -55,20 +58,41 @@ public class XChangeCandleService {
             throw new RuntimeException("Failed to load candles from Binance", exception);
         }
     }
-    private Candle mapToCandle(CandleStick candleStick) {
-        String date = candleStick.getTimestamp()
-                .toInstant()
-                .atZone(ZoneOffset.UTC)
-                .toLocalDate()
-                .toString();
+
+    private KlineInterval mapInterval(String interval) {
+        String normalized = interval.toLowerCase();
+
+        return switch (normalized) {
+            case "m1" -> KlineInterval.m1;
+            case "m5" -> KlineInterval.m5;
+            case "m15" -> KlineInterval.m15;
+            case "h1" -> KlineInterval.h1;
+            case "h4" -> KlineInterval.h4;
+            case "d1" -> KlineInterval.d1;
+            default -> KlineInterval.d1;
+        };
+    }
+
+    private Candle mapToCandle(BinanceKline kline, String interval) {
+        Object time;
+
+        if ("d1".equalsIgnoreCase(interval)) {
+            time = Instant.ofEpochMilli(kline.getOpenTime())
+                    .atZone(ZoneOffset.UTC)
+                    .toLocalDate()
+                    .toString();
+        } else {
+            time = Instant.ofEpochMilli(kline.getOpenTime())
+                    .getEpochSecond();
+        }
 
         return new Candle(
-                date,
-                candleStick.getOpen().doubleValue(),
-                candleStick.getHigh().doubleValue(),
-                candleStick.getLow().doubleValue(),
-                candleStick.getClose().doubleValue(),
-                candleStick.getVolume().doubleValue()
+                time,
+                kline.getOpen().doubleValue(),
+                kline.getHigh().doubleValue(),
+                kline.getLow().doubleValue(),
+                kline.getClose().doubleValue(),
+                kline.getVolume().doubleValue()
         );
     }
 }

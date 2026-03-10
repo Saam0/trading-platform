@@ -8,7 +8,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class Candle {
-    private String time;
+    private Object time;
     private double open;
     private double high;
     private double low;

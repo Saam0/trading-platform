@@ -14,11 +14,11 @@ import java.util.List;
 @AllArgsConstructor
 public class CandleRestController {
 
-//    private final CandleService candleService;
-    private final XChangeCandleService xChangeCandleService;
+    private final CandleService candleService;
 
     @GetMapping("/api/candles")
-    public List<Candle> getCandles(@RequestParam(defaultValue = "BTCUSDT") String ticker) {
-        return xChangeCandleService.getCandles(ticker);
+    public List<Candle> getCandles(@RequestParam(defaultValue = "BTCUSDT") String ticker,
+                                   @RequestParam(defaultValue = "d1") String interval) {
+        return candleService.getCandles(ticker, interval);
     }
 }
