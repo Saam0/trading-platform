@@ -229,14 +229,14 @@ document.addEventListener('DOMContentLoaded', function () {
     function loadSma() {
         const ticker = tickerSelect.value;
         const interval = intervalSelect.value;
-        const barCount = smaPeriodSelect.value;
+        const period = smaPeriodSelect.value;
 
         const url = '/api/indicators/sma?ticker='
             + encodeURIComponent(ticker)
             + '&interval='
             + encodeURIComponent(interval)
-            + '&barCount='
-            + encodeURIComponent(barCount);
+            + '&period='
+            + encodeURIComponent(period);
 
         return fetch(url)
             .then(function (response) {

@@ -29,17 +29,17 @@ public class Ta4jIndicatorService implements  IndicatorService {
     }
 
     @Override
-    public List<SmaPoint> getSma(String ticker, String interval, int barCount) {
+    public List<SmaPoint> getSma(String ticker, String interval, int period) {
         List<Candle> candles = candleService.getCandles(ticker, interval);
         BarSeries series = buildSeries(candles, interval);
 
         ClosePriceIndicator closePriceIndicator = new ClosePriceIndicator(series);
-        SMAIndicator smaIndicator = new SMAIndicator(closePriceIndicator, barCount);
+        SMAIndicator smaIndicator = new SMAIndicator(closePriceIndicator, period);
 
         List<SmaPoint> points = new ArrayList<>();
 
         for (int i = 0; i < series.getBarCount(); i++) {
-            if (i < barCount - 1) {
+            if (i < period - 1) {
                 continue;
             }
 

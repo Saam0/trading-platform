@@ -18,9 +18,9 @@ public class IndicatorRestController {
     public List<SmaPoint> getSma(
             @RequestParam(defaultValue = "BTCUSDT") String ticker,
             @RequestParam(defaultValue = "d1") String interval,
-            @RequestParam(defaultValue = "5") int barCount
+            @RequestParam(defaultValue = "5") int period
     ) {
-        return indicatorService.getSma(ticker, interval, barCount);
+        return indicatorService.getSma(ticker, interval, period);
     }
 
 }
