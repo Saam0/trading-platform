@@ -72,10 +72,20 @@
 
             <div class="form-check mt-1">
                 <input class="form-check-input" type="checkbox" id="showSmaToggle" checked>
-                <label class="form-check-label" for="showSmaToggle">
+                <label class="form-check-label" for="showSmaToggle" id="showSmaLabel">
                     Show SMA(5)
                 </label>
             </div>
+        </div>
+
+        <div class="col-md-3">
+            <label class="form-label">SMA Period</label>
+            <select class="form-select" id="smaPeriodSelect">
+                <option value="5" selected>5</option>
+                <option value="9">9</option>
+                <option value="20">20</option>
+                <option value="50">50</option>
+            </select>
         </div>
     </div>
 
@@ -109,7 +119,7 @@
             </div>
 
             <div id="errorMessage" class="alert alert-danger d-none" role="alert">
-                Failed to load candles.
+                Failed to load chart data.
             </div>
         </div>
     </div>
