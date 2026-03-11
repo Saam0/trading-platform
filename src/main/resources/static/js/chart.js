@@ -5,6 +5,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const enableScaleToggle = document.getElementById('enableScaleToggle');
     const enableScrollToggle = document.getElementById('enableScrollToggle');
     const showVolumeToggle = document.getElementById('showVolumeToggle');
+    const showSmaToggle = document.getElementById('showSmaToggle');
 
     const loadingMessage = document.getElementById('loadingMessage');
     const errorMessage = document.getElementById('errorMessage');
@@ -56,18 +57,23 @@ document.addEventListener('DOMContentLoaded', function () {
 
     let candlestickSeries;
     let volumeSeries = null;
+    let smaSeries = null;
 
     function createPriceSeries() {
         if (typeof chart.addSeries === 'function' && LightweightCharts.CandlestickSeries) {
-            candlestickSeries = chart.addSeries(
-                LightweightCharts.CandlestickSeries,
-                {},
-                0
-            );
-        } else if (typeof chart.addCandlestickSeries === 'function') {
-            candlestickSeries = chart.addCandlestickSeries();
+            candlestickSeries = chart.addSeries(LightweightCharts.CandlestickSeries, {}, 0);
+            smaSeries = chart.addSeries(LightweightCharts.LineSeries, {
+                lineWidth: 2,
+                lastValueVisible: false,
+                priceLineVisible: false
+            }, 0);
         } else {
-            throw new Error('Candlestick series API is not available');
+            candlestickSeries = chart.addCandlestickSeries();
+            smaSeries = chart.addLineSeries({
+                lineWidth: 2,
+                lastValueVisible: false,
+                priceLineVisible: false
+            });
         }
     }
 
@@ -86,14 +92,12 @@ document.addEventListener('DOMContentLoaded', function () {
                 },
                 1
             );
-        } else if (typeof chart.addHistogramSeries === 'function') {
+        } else {
             volumeSeries = chart.addHistogramSeries({
                 priceFormat: { type: 'volume' },
                 lastValueVisible: false,
                 priceLineVisible: false
             });
-        } else {
-            throw new Error('Histogram series API is not available');
         }
     }
 
@@ -202,35 +206,64 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    function applyData(data) {
-        candlestickSeries.setData(data);
+    function loadSma() {
+        const ticker = tickerSelect.value;
+        const interval = intervalSelect.value;
+        const barCount = 5;
+
+        const url = '/api/indicators/sma?ticker='
+            + encodeURIComponent(ticker)
+            + '&interval='
+            + encodeURIComponent(interval)
+            + '&barCount='
+            + encodeURIComponent(barCount);
+
+        return fetch(url)
+            .then(function (response) {
+                if (!response.ok) {
+                    return response.json().then(function (errorBody) {
+                        throw new Error(errorBody.message || 'Failed to load SMA');
+                    });
+                }
+                return response.json();
+            });
+    }
+
+    function applyData(candleData, smaData) {
+        candlestickSeries.setData(candleData);
 
         if (showVolumeToggle.checked) {
             ensureVolumePane();
             if (volumeSeries) {
-                volumeSeries.setData(toVolumeData(data));
+                volumeSeries.setData(toVolumeData(candleData));
             }
         } else {
             removeVolumeSeries();
         }
 
+        if (showSmaToggle.checked) {
+            smaSeries.setData(smaData);
+        } else {
+            smaSeries.setData([]);
+        }
+
         chart.timeScale().fitContent();
-        updateInfoLabels(data);
+        updateInfoLabels(candleData);
         errorMessage.classList.add('d-none');
     }
 
-    function loadCandles() {
+    function loadAllData() {
         const ticker = tickerSelect.value;
         const interval = intervalSelect.value;
 
-        const url = '/api/candles?ticker='
+        const candlesUrl = '/api/candles?ticker='
             + encodeURIComponent(ticker)
             + '&interval='
             + encodeURIComponent(interval);
 
         showLoading();
 
-        fetch(url)
+        const candlePromise = fetch(candlesUrl)
             .then(function (response) {
                 if (!response.ok) {
                     return response.json().then(function (errorBody) {
@@ -238,12 +271,18 @@ document.addEventListener('DOMContentLoaded', function () {
                     });
                 }
                 return response.json();
-            })
-            .then(function (data) {
-                applyData(data);
+            });
+
+        const smaPromise = showSmaToggle.checked ? loadSma() : Promise.resolve([]);
+
+        Promise.all([candlePromise, smaPromise])
+            .then(function (results) {
+                const candleData = results[0];
+                const smaData = results[1];
+                applyData(candleData, smaData);
             })
             .catch(function (error) {
-                console.error('Error loading candles:', error);
+                console.error('Error loading chart data:', error);
                 showError(error.message);
             })
             .finally(function () {
@@ -253,14 +292,14 @@ document.addEventListener('DOMContentLoaded', function () {
 
     updateInteractionOptions();
     ensureVolumePane();
-    loadCandles();
+    loadAllData();
 
     tickerSelect.addEventListener('change', function () {
-        loadCandles();
+        loadAllData();
     });
 
     intervalSelect.addEventListener('change', function () {
-        loadCandles();
+        loadAllData();
     });
 
     enableScaleToggle.addEventListener('change', function () {
@@ -272,7 +311,11 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     showVolumeToggle.addEventListener('change', function () {
-        loadCandles();
+        loadAllData();
+    });
+
+    showSmaToggle.addEventListener('change', function () {
+        loadAllData();
     });
 
     window.addEventListener('resize', function () {
