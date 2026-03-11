@@ -22,5 +22,12 @@ public class IndicatorRestController {
     ) {
         return indicatorService.getSma(ticker, interval, period);
     }
-
+    @GetMapping("/api/indicators/ema")
+    public List<SmaPoint> getEma(
+            @RequestParam(defaultValue = "BTCUSDT") String ticker,
+            @RequestParam(defaultValue = "d1") String interval,
+            @RequestParam(defaultValue = "20") int period
+    ) {
+        return indicatorService.getEma(ticker, interval, period);
+    }
 }

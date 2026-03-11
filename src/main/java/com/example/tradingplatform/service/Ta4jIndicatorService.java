@@ -7,6 +7,7 @@ import org.ta4j.core.BarSeries;
 import org.ta4j.core.BaseBar;
 import org.ta4j.core.BaseBarSeries;
 import org.ta4j.core.BaseBarSeriesBuilder;
+import org.ta4j.core.indicators.averages.EMAIndicator;
 import org.ta4j.core.indicators.averages.SMAIndicator;
 import org.ta4j.core.indicators.helpers.ClosePriceIndicator;
 import org.ta4j.core.num.DecimalNum;
@@ -45,6 +46,30 @@ public class Ta4jIndicatorService implements  IndicatorService {
 
             Object time = candles.get(i).getTime();
             double value = smaIndicator.getValue(i).doubleValue();
+
+            points.add(new SmaPoint(time, value));
+        }
+
+        return points;
+    }
+
+    @Override
+    public List<SmaPoint> getEma(String ticker, String interval, int period) {
+        List<Candle> candles = candleService.getCandles(ticker, interval);
+        BarSeries series = buildSeries(candles, interval);
+
+        ClosePriceIndicator closePriceIndicator = new ClosePriceIndicator(series);
+        EMAIndicator emaIndicator = new EMAIndicator(closePriceIndicator, period);
+
+        List<SmaPoint> points = new ArrayList<>();
+
+        for (int i = 0; i < series.getBarCount(); i++) {
+            if (i < period - 1) {
+                continue;
+            }
+
+            Object time = candles.get(i).getTime();
+            double value = emaIndicator.getValue(i).doubleValue();
 
             points.add(new SmaPoint(time, value));
         }
