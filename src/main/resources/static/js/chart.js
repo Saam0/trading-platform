@@ -72,8 +72,9 @@ document.addEventListener('DOMContentLoaded', function () {
     let volumeSeries = null;
     let smaSeries = null;
     let emaSeries = null;
-    let ceLongSeries = null;
-    let ceShortSeries = null;
+
+    let ceLongSegmentSeries = [];
+    let ceShortSegmentSeries = [];
     let ceMarkersPrimitive = null;
 
     function createPriceSeries() {
@@ -105,28 +106,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 },
                 0
             );
-
-            ceLongSeries = chart.addSeries(
-                LightweightCharts.LineSeries,
-                {
-                    lineWidth: 2,
-                    color: '#2e7d32',
-                    lastValueVisible: false,
-                    priceLineVisible: false
-                },
-                0
-            );
-
-            ceShortSeries = chart.addSeries(
-                LightweightCharts.LineSeries,
-                {
-                    lineWidth: 2,
-                    color: '#e53935',
-                    lastValueVisible: false,
-                    priceLineVisible: false
-                },
-                0
-            );
         } else if (typeof chart.addCandlestickSeries === 'function') {
             candlestickSeries = chart.addCandlestickSeries();
 
@@ -140,20 +119,6 @@ document.addEventListener('DOMContentLoaded', function () {
             emaSeries = chart.addLineSeries({
                 lineWidth: 2,
                 color: '#FF6D00',
-                lastValueVisible: false,
-                priceLineVisible: false
-            });
-
-            ceLongSeries = chart.addLineSeries({
-                lineWidth: 2,
-                color: '#2e7d32',
-                lastValueVisible: false,
-                priceLineVisible: false
-            });
-
-            ceShortSeries = chart.addLineSeries({
-                lineWidth: 2,
-                color: '#e53935',
                 lastValueVisible: false,
                 priceLineVisible: false
             });
@@ -172,6 +137,18 @@ document.addEventListener('DOMContentLoaded', function () {
         if (typeof LightweightCharts.createSeriesMarkers === 'function') {
             ceMarkersPrimitive = LightweightCharts.createSeriesMarkers(candlestickSeries, []);
         }
+    }
+
+    function addLineSeries(options) {
+        if (typeof chart.addSeries === 'function' && LightweightCharts.LineSeries) {
+            return chart.addSeries(LightweightCharts.LineSeries, options, 0);
+        }
+
+        if (typeof chart.addLineSeries === 'function') {
+            return chart.addLineSeries(options);
+        }
+
+        throw new Error('Line series API is not available');
     }
 
     function createVolumeSeries() {
@@ -218,6 +195,81 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
             }
         }
+    }
+
+    function clearCeSegmentSeries() {
+        ceLongSegmentSeries.forEach(function (series) {
+            chart.removeSeries(series);
+        });
+
+        ceShortSegmentSeries.forEach(function (series) {
+            chart.removeSeries(series);
+        });
+
+        ceLongSegmentSeries = [];
+        ceShortSegmentSeries = [];
+    }
+
+    function buildCeSegments(ceData, directionValue, stopFieldName) {
+        const segments = [];
+        let currentSegment = [];
+
+        ceData.forEach(function (point) {
+            const stopValue = point[stopFieldName];
+            const isActive =
+                point.direction === directionValue &&
+                stopValue !== null &&
+                stopValue !== undefined;
+
+            if (isActive) {
+                currentSegment.push({
+                    time: point.time,
+                    value: Number(stopValue)
+                });
+            } else {
+                if (currentSegment.length > 0) {
+                    segments.push(currentSegment);
+                    currentSegment = [];
+                }
+            }
+        });
+
+        if (currentSegment.length > 0) {
+            segments.push(currentSegment);
+        }
+
+        return segments;
+    }
+
+    function renderCeSegments(ceData) {
+        clearCeSegmentSeries();
+
+        const longSegments = buildCeSegments(ceData, 1, 'longStop');
+        const shortSegments = buildCeSegments(ceData, -1, 'shortStop');
+
+        longSegments.forEach(function (segmentData) {
+            const series = addLineSeries({
+                lineWidth: 2,
+                color: '#2e7d32',
+                lastValueVisible: false,
+                priceLineVisible: false
+            });
+
+            series.setData(segmentData);
+            ceLongSegmentSeries.push(series);
+        });
+
+        shortSegments.forEach(function (segmentData) {
+            const series = addLineSeries({
+                lineWidth: 2,
+                color: '#e53935',
+                lastValueVisible: false,
+                priceLineVisible: false
+            });
+
+            series.setData(segmentData);
+            ceShortSegmentSeries.push(series);
+        });
     }
 
     createPriceSeries();
@@ -286,32 +338,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 time: candle.time,
                 value: Number(candle.volume),
                 color: isBullish ? '#26a69a' : '#ef5350'
-            };
-        });
-    }
-
-    function toCeLongData(ceData) {
-        return ceData.map(function (point) {
-            if (point.direction !== 1 || point.longStop === null || point.longStop === undefined) {
-                return { time: point.time };
-            }
-
-            return {
-                time: point.time,
-                value: Number(point.longStop)
-            };
-        });
-    }
-
-    function toCeShortData(ceData) {
-        return ceData.map(function (point) {
-            if (point.direction !== -1 || point.shortStop === null || point.shortStop === undefined) {
-                return { time: point.time };
-            }
-
-            return {
-                time: point.time,
-                value: Number(point.shortStop)
             };
         });
     }
@@ -501,12 +527,10 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         if (showCeToggle.checked) {
-            ceLongSeries.setData(toCeLongData(ceData));
-            ceShortSeries.setData(toCeShortData(ceData));
+            renderCeSegments(ceData);
             applyMarkers(toCeMarkers(ceData));
         } else {
-            ceLongSeries.setData([]);
-            ceShortSeries.setData([]);
+            clearCeSegmentSeries();
             clearMarkers();
         }
 
