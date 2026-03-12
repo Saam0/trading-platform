@@ -42,7 +42,7 @@ public class XChangeCandleService implements CandleService {
             List<BinanceKline> klines = marketDataService.klines(
                     currencyPair,
                     klineInterval,
-                    30,
+                    200,
                     null,
                     null
             );

@@ -5,10 +5,16 @@ document.addEventListener('DOMContentLoaded', function () {
     const enableScaleToggle = document.getElementById('enableScaleToggle');
     const enableScrollToggle = document.getElementById('enableScrollToggle');
     const showVolumeToggle = document.getElementById('showVolumeToggle');
+
     const showSmaToggle = document.getElementById('showSmaToggle');
     const showEmaToggle = document.getElementById('showEmaToggle');
+    const showCeToggle = document.getElementById('showCeToggle');
+
     const smaPeriodSelect = document.getElementById('smaPeriodSelect');
     const emaPeriodSelect = document.getElementById('emaPeriodSelect');
+    const ceLengthSelect = document.getElementById('ceLengthSelect');
+    const ceMultiplierInput = document.getElementById('ceMultiplierInput');
+    const ceUseCloseToggle = document.getElementById('ceUseCloseToggle');
 
     const loadingMessage = document.getElementById('loadingMessage');
     const errorMessage = document.getElementById('errorMessage');
@@ -16,8 +22,10 @@ document.addEventListener('DOMContentLoaded', function () {
     const selectedTickerLabel = document.getElementById('selectedTickerLabel');
     const selectedIntervalLabel = document.getElementById('selectedIntervalLabel');
     const lastCloseLabel = document.getElementById('lastCloseLabel');
+
     const showSmaLabel = document.getElementById('showSmaLabel');
     const showEmaLabel = document.getElementById('showEmaLabel');
+    const showCeLabel = document.getElementById('showCeLabel');
 
     const chart = LightweightCharts.createChart(chartContainer, {
         width: chartContainer.clientWidth,
@@ -64,6 +72,8 @@ document.addEventListener('DOMContentLoaded', function () {
     let volumeSeries = null;
     let smaSeries = null;
     let emaSeries = null;
+    let ceLongSeries = null;
+    let ceShortSeries = null;
 
     function createPriceSeries() {
         if (typeof chart.addSeries === 'function' && LightweightCharts.CandlestickSeries) {
@@ -94,6 +104,28 @@ document.addEventListener('DOMContentLoaded', function () {
                 },
                 0
             );
+
+            ceLongSeries = chart.addSeries(
+                LightweightCharts.LineSeries,
+                {
+                    lineWidth: 2,
+                    color: '#16a34a',
+                    lastValueVisible: false,
+                    priceLineVisible: false
+                },
+                0
+            );
+
+            ceShortSeries = chart.addSeries(
+                LightweightCharts.LineSeries,
+                {
+                    lineWidth: 2,
+                    color: '#dc2626',
+                    lastValueVisible: false,
+                    priceLineVisible: false
+                },
+                0
+            );
         } else if (typeof chart.addCandlestickSeries === 'function') {
             candlestickSeries = chart.addCandlestickSeries();
 
@@ -107,6 +139,20 @@ document.addEventListener('DOMContentLoaded', function () {
             emaSeries = chart.addLineSeries({
                 lineWidth: 2,
                 color: '#FF6D00',
+                lastValueVisible: false,
+                priceLineVisible: false
+            });
+
+            ceLongSeries = chart.addLineSeries({
+                lineWidth: 2,
+                color: '#16a34a',
+                lastValueVisible: false,
+                priceLineVisible: false
+            });
+
+            ceShortSeries = chart.addLineSeries({
+                lineWidth: 2,
+                color: '#dc2626',
                 lastValueVisible: false,
                 priceLineVisible: false
             });
@@ -215,6 +261,8 @@ document.addEventListener('DOMContentLoaded', function () {
     function updateIndicatorLabels() {
         showSmaLabel.textContent = 'Show SMA(' + smaPeriodSelect.value + ')';
         showEmaLabel.textContent = 'Show EMA(' + emaPeriodSelect.value + ')';
+        showCeLabel.textContent =
+            'Show Chandelier Exit (' + ceLengthSelect.value + ', x' + ceMultiplierInput.value + ')';
     }
 
     function toVolumeData(candleData) {
@@ -227,6 +275,32 @@ document.addEventListener('DOMContentLoaded', function () {
                 color: isBullish ? '#26a69a' : '#ef5350'
             };
         });
+    }
+
+    function toCeLongData(ceData) {
+        return ceData
+            .filter(function (point) {
+                return point.longStop !== null && point.longStop !== undefined;
+            })
+            .map(function (point) {
+                return {
+                    time: point.time,
+                    value: Number(point.longStop)
+                };
+            });
+    }
+
+    function toCeShortData(ceData) {
+        return ceData
+            .filter(function (point) {
+                return point.shortStop !== null && point.shortStop !== undefined;
+            })
+            .map(function (point) {
+                return {
+                    time: point.time,
+                    value: Number(point.shortStop)
+                };
+            });
     }
 
     function updateInteractionOptions() {
@@ -249,6 +323,26 @@ document.addEventListener('DOMContentLoaded', function () {
                 vertTouchDrag: true
             } : false
         });
+    }
+
+    function loadCandles() {
+        const ticker = tickerSelect.value;
+        const interval = intervalSelect.value;
+
+        const url = '/api/candles?ticker='
+            + encodeURIComponent(ticker)
+            + '&interval='
+            + encodeURIComponent(interval);
+
+        return fetch(url)
+            .then(function (response) {
+                if (!response.ok) {
+                    return response.json().then(function (errorBody) {
+                        throw new Error(errorBody.message || 'Failed to load candles');
+                    });
+                }
+                return response.json();
+            });
     }
 
     function loadSma() {
@@ -297,7 +391,36 @@ document.addEventListener('DOMContentLoaded', function () {
             });
     }
 
-    function applyData(candleData, smaData, emaData) {
+    function loadChandelierExit() {
+        const ticker = tickerSelect.value;
+        const interval = intervalSelect.value;
+        const length = ceLengthSelect.value;
+        const multiplier = ceMultiplierInput.value;
+        const useClose = ceUseCloseToggle.checked;
+
+        const url = '/api/indicators/chandelier-exit?ticker='
+            + encodeURIComponent(ticker)
+            + '&interval='
+            + encodeURIComponent(interval)
+            + '&length='
+            + encodeURIComponent(length)
+            + '&multiplier='
+            + encodeURIComponent(multiplier)
+            + '&useClose='
+            + encodeURIComponent(useClose);
+
+        return fetch(url)
+            .then(function (response) {
+                if (!response.ok) {
+                    return response.json().then(function (errorBody) {
+                        throw new Error(errorBody.message || 'Failed to load Chandelier Exit');
+                    });
+                }
+                return response.json();
+            });
+    }
+
+    function applyData(candleData, smaData, emaData, ceData) {
         candlestickSeries.setData(candleData);
 
         if (showVolumeToggle.checked) {
@@ -321,31 +444,23 @@ document.addEventListener('DOMContentLoaded', function () {
             emaSeries.setData([]);
         }
 
+        if (showCeToggle.checked) {
+            ceLongSeries.setData(toCeLongData(ceData));
+            ceShortSeries.setData(toCeShortData(ceData));
+        } else {
+            ceLongSeries.setData([]);
+            ceShortSeries.setData([]);
+        }
+
         chart.timeScale().fitContent();
         updateInfoLabels(candleData);
         errorMessage.classList.add('d-none');
     }
 
     function loadAllData() {
-        const ticker = tickerSelect.value;
-        const interval = intervalSelect.value;
-
-        const candlesUrl = '/api/candles?ticker='
-            + encodeURIComponent(ticker)
-            + '&interval='
-            + encodeURIComponent(interval);
-
         showLoading();
 
-        const candlePromise = fetch(candlesUrl)
-            .then(function (response) {
-                if (!response.ok) {
-                    return response.json().then(function (errorBody) {
-                        throw new Error(errorBody.message || 'Failed to load candles');
-                    });
-                }
-                return response.json();
-            });
+        const candlePromise = loadCandles();
 
         const smaPromise = showSmaToggle.checked
             ? loadSma()
@@ -355,12 +470,18 @@ document.addEventListener('DOMContentLoaded', function () {
             ? loadEma()
             : Promise.resolve([]);
 
-        Promise.all([candlePromise, smaPromise, emaPromise])
+        const cePromise = showCeToggle.checked
+            ? loadChandelierExit()
+            : Promise.resolve([]);
+
+        Promise.all([candlePromise, smaPromise, emaPromise, cePromise])
             .then(function (results) {
                 const candleData = results[0];
                 const smaData = results[1];
                 const emaData = results[2];
-                applyData(candleData, smaData, emaData);
+                const ceData = results[3];
+
+                applyData(candleData, smaData, emaData, ceData);
             })
             .catch(function (error) {
                 console.error('Error loading chart data:', error);
@@ -394,6 +515,21 @@ document.addEventListener('DOMContentLoaded', function () {
         loadAllData();
     });
 
+    ceLengthSelect.addEventListener('change', function () {
+        updateIndicatorLabels();
+        loadAllData();
+    });
+
+    ceMultiplierInput.addEventListener('change', function () {
+        updateIndicatorLabels();
+        loadAllData();
+    });
+
+    ceUseCloseToggle.addEventListener('change', function () {
+        updateIndicatorLabels();
+        loadAllData();
+    });
+
     enableScaleToggle.addEventListener('change', function () {
         updateInteractionOptions();
     });
@@ -411,6 +547,11 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     showEmaToggle.addEventListener('change', function () {
+        loadAllData();
+    });
+
+    showCeToggle.addEventListener('change', function () {
+        updateIndicatorLabels();
         loadAllData();
     });
 

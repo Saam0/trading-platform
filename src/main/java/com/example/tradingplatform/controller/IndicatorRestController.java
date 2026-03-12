@@ -1,5 +1,6 @@
 package com.example.tradingplatform.controller;
 
+import com.example.tradingplatform.dto.ChandelierExitPoint;
 import com.example.tradingplatform.dto.SmaPoint;
 import com.example.tradingplatform.service.IndicatorService;
 import lombok.AllArgsConstructor;
@@ -29,5 +30,16 @@ public class IndicatorRestController {
             @RequestParam(defaultValue = "20") int period
     ) {
         return indicatorService.getEma(ticker, interval, period);
+    }
+
+    @GetMapping("/api/indicators/chandelier-exit")
+    public List<ChandelierExitPoint> getChandelierExit(
+            @RequestParam(defaultValue = "BTCUSDT") String ticker,
+            @RequestParam(defaultValue = "d1") String interval,
+            @RequestParam(defaultValue = "22") int length,
+            @RequestParam(defaultValue = "3.0") double multiplier,
+            @RequestParam(defaultValue = "true") boolean useClose
+    ) {
+        return indicatorService.getChandelierExit(ticker, interval, length, multiplier, useClose);
     }
 }
