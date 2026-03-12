@@ -74,6 +74,7 @@ document.addEventListener('DOMContentLoaded', function () {
     let emaSeries = null;
     let ceLongSeries = null;
     let ceShortSeries = null;
+    let ceMarkersPrimitive = null;
 
     function createPriceSeries() {
         if (typeof chart.addSeries === 'function' && LightweightCharts.CandlestickSeries) {
@@ -109,7 +110,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 LightweightCharts.LineSeries,
                 {
                     lineWidth: 2,
-                    color: '#16a34a',
+                    color: '#2e7d32',
                     lastValueVisible: false,
                     priceLineVisible: false
                 },
@@ -120,7 +121,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 LightweightCharts.LineSeries,
                 {
                     lineWidth: 2,
-                    color: '#dc2626',
+                    color: '#e53935',
                     lastValueVisible: false,
                     priceLineVisible: false
                 },
@@ -145,19 +146,31 @@ document.addEventListener('DOMContentLoaded', function () {
 
             ceLongSeries = chart.addLineSeries({
                 lineWidth: 2,
-                color: '#16a34a',
+                color: '#2e7d32',
                 lastValueVisible: false,
                 priceLineVisible: false
             });
 
             ceShortSeries = chart.addLineSeries({
                 lineWidth: 2,
-                color: '#dc2626',
+                color: '#e53935',
                 lastValueVisible: false,
                 priceLineVisible: false
             });
         } else {
             throw new Error('Candlestick series API is not available');
+        }
+
+        setupMarkersPrimitive();
+    }
+
+    function setupMarkersPrimitive() {
+        if (typeof candlestickSeries.setMarkers === 'function') {
+            return;
+        }
+
+        if (typeof LightweightCharts.createSeriesMarkers === 'function') {
+            ceMarkersPrimitive = LightweightCharts.createSeriesMarkers(candlestickSeries, []);
         }
     }
 
@@ -278,29 +291,72 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function toCeLongData(ceData) {
-        return ceData
-            .filter(function (point) {
-                return point.longStop !== null && point.longStop !== undefined;
-            })
-            .map(function (point) {
-                return {
-                    time: point.time,
-                    value: Number(point.longStop)
-                };
-            });
+        return ceData.map(function (point) {
+            if (point.direction !== 1 || point.longStop === null || point.longStop === undefined) {
+                return { time: point.time };
+            }
+
+            return {
+                time: point.time,
+                value: Number(point.longStop)
+            };
+        });
     }
 
     function toCeShortData(ceData) {
-        return ceData
-            .filter(function (point) {
-                return point.shortStop !== null && point.shortStop !== undefined;
-            })
-            .map(function (point) {
-                return {
+        return ceData.map(function (point) {
+            if (point.direction !== -1 || point.shortStop === null || point.shortStop === undefined) {
+                return { time: point.time };
+            }
+
+            return {
+                time: point.time,
+                value: Number(point.shortStop)
+            };
+        });
+    }
+
+    function toCeMarkers(ceData) {
+        const markers = [];
+
+        ceData.forEach(function (point) {
+            if (point.buySignal === true) {
+                markers.push({
                     time: point.time,
-                    value: Number(point.shortStop)
-                };
-            });
+                    position: 'belowBar',
+                    color: '#4caf50',
+                    shape: 'arrowUp',
+                    text: 'Buy'
+                });
+            }
+
+            if (point.sellSignal === true) {
+                markers.push({
+                    time: point.time,
+                    position: 'aboveBar',
+                    color: '#ef5350',
+                    shape: 'arrowDown',
+                    text: 'Sell'
+                });
+            }
+        });
+
+        return markers;
+    }
+
+    function applyMarkers(markers) {
+        if (typeof candlestickSeries.setMarkers === 'function') {
+            candlestickSeries.setMarkers(markers);
+            return;
+        }
+
+        if (ceMarkersPrimitive && typeof ceMarkersPrimitive.setMarkers === 'function') {
+            ceMarkersPrimitive.setMarkers(markers);
+        }
+    }
+
+    function clearMarkers() {
+        applyMarkers([]);
     }
 
     function updateInteractionOptions() {
@@ -447,9 +503,11 @@ document.addEventListener('DOMContentLoaded', function () {
         if (showCeToggle.checked) {
             ceLongSeries.setData(toCeLongData(ceData));
             ceShortSeries.setData(toCeShortData(ceData));
+            applyMarkers(toCeMarkers(ceData));
         } else {
             ceLongSeries.setData([]);
             ceShortSeries.setData([]);
+            clearMarkers();
         }
 
         chart.timeScale().fitContent();
