@@ -1,5 +1,5 @@
 document.addEventListener('DOMContentLoaded', function () {
-    console.log('chart.js VERSION: historical-lazy-loading-v2');
+    console.log('chart.js VERSION: historical-lazy-loading-v8-initial-90-stable');
 
     const chartContainer = document.getElementById('chart');
     const tickerSelect = document.getElementById('tickerSelect');
@@ -29,9 +29,10 @@ document.addEventListener('DOMContentLoaded', function () {
     const showEmaLabel = document.getElementById('showEmaLabel');
     const showCeLabel = document.getElementById('showCeLabel');
 
-    const INITIAL_LIMIT = 30;
-    const HISTORY_PAGE_SIZE = 30;
-    const LEFT_EDGE_THRESHOLD = 5;
+    const INITIAL_LIMIT = 90;
+    const HISTORY_PAGE_SIZE = 90;
+    const LEFT_BARS_THRESHOLD = 15;
+    const FALLBACK_LEFT_EDGE_THRESHOLD = 5;
 
     const chart = LightweightCharts.createChart(chartContainer, {
         width: chartContainer.clientWidth,
@@ -85,7 +86,12 @@ document.addEventListener('DOMContentLoaded', function () {
 
     let allCandles = [];
     let isLoadingOlder = false;
+    let isReloading = false;
     let hasMoreHistory = true;
+    let userInteractedWithChart = false;
+    let suppressVisibleRangeHandler = false;
+    let visibleRangeAnimationFrameId = null;
+    let lastHistoryRequestTo = null;
 
     function createPriceSeries() {
         if (typeof chart.addSeries === 'function' && LightweightCharts.CandlestickSeries) {
@@ -650,13 +656,29 @@ document.addEventListener('DOMContentLoaded', function () {
         return [smaPromise, emaPromise, cePromise];
     }
 
+    function resetHistoryState() {
+        isLoadingOlder = false;
+        hasMoreHistory = true;
+        lastHistoryRequestTo = null;
+        suppressVisibleRangeHandler = false;
+        if (visibleRangeAnimationFrameId !== null) {
+            cancelAnimationFrame(visibleRangeAnimationFrameId);
+            visibleRangeAnimationFrameId = null;
+        }
+    }
+
     function loadInitialData(options) {
+        if (isReloading) {
+            return;
+        }
+
+        isReloading = true;
+
         const resetView = options && options.resetView === true;
         const viewState = resetView ? null : captureChartViewState();
 
         allCandles = [];
-        isLoadingOlder = false;
-        hasMoreHistory = true;
+        resetHistoryState();
 
         showLoading('Loading candles...');
 
@@ -686,11 +708,18 @@ document.addEventListener('DOMContentLoaded', function () {
                 showError(error.message);
             })
             .finally(function () {
+                isReloading = false;
                 hideLoading();
             });
     }
 
     function reloadCurrentWindow(options) {
+        if (isReloading) {
+            return;
+        }
+
+        isReloading = true;
+
         const resetView = options && options.resetView === true;
         const viewState = resetView ? null : captureChartViewState();
         const currentLimit = allCandles.length > 0 ? allCandles.length : INITIAL_LIMIT;
@@ -722,25 +751,80 @@ document.addEventListener('DOMContentLoaded', function () {
                 showError(error.message);
             })
             .finally(function () {
+                isReloading = false;
                 hideLoading();
             });
     }
 
-    function loadOlderHistory() {
-        if (isLoadingOlder || !hasMoreHistory || allCandles.length === 0) {
+    function shouldLoadOlderHistory(logicalRange) {
+        if (!logicalRange) {
+            return false;
+        }
+
+        if (!userInteractedWithChart) {
+            return false;
+        }
+
+        if (isLoadingOlder || isReloading || suppressVisibleRangeHandler || !hasMoreHistory || allCandles.length === 0) {
+            return false;
+        }
+
+        if (typeof candlestickSeries.barsInLogicalRange === 'function') {
+            const barsInfo = candlestickSeries.barsInLogicalRange(logicalRange);
+
+            if (!barsInfo) {
+                return false;
+            }
+
+            if (barsInfo.barsBefore === null || barsInfo.barsBefore === undefined) {
+                return false;
+            }
+
+            return barsInfo.barsBefore < LEFT_BARS_THRESHOLD;
+        }
+
+        return logicalRange.from <= FALLBACK_LEFT_EDGE_THRESHOLD;
+    }
+
+    function restoreViewportAfterHistoryLoad(previousRange, addedCount) {
+        if (!previousRange || addedCount <= 0) {
             return;
         }
 
-        isLoadingOlder = true;
+        suppressVisibleRangeHandler = true;
+
+        requestAnimationFrame(function () {
+            chart.timeScale().setVisibleLogicalRange({
+                from: previousRange.from + addedCount,
+                to: previousRange.to + addedCount
+            });
+
+            requestAnimationFrame(function () {
+                suppressVisibleRangeHandler = false;
+            });
+        });
+    }
+
+    function loadOlderHistory() {
+        if (isLoadingOlder || isReloading || !hasMoreHistory || allCandles.length === 0) {
+            return;
+        }
 
         const oldestTime = getOldestCandleTimeMillis();
 
         if (oldestTime === null) {
-            isLoadingOlder = false;
             return;
         }
 
         const requestTo = oldestTime - 1;
+
+        if (lastHistoryRequestTo !== null && requestTo >= lastHistoryRequestTo) {
+            return;
+        }
+
+        isLoadingOlder = true;
+        lastHistoryRequestTo = requestTo;
+
         const previousRange = chart.timeScale().getVisibleLogicalRange();
 
         loadCandles(HISTORY_PAGE_SIZE, requestTo)
@@ -753,6 +837,11 @@ document.addEventListener('DOMContentLoaded', function () {
                 const oldLength = allCandles.length;
                 allCandles = mergeCandles(allCandles, olderCandles);
                 const addedCount = allCandles.length - oldLength;
+
+                if (addedCount === 0) {
+                    hasMoreHistory = false;
+                    return Promise.resolve([]);
+                }
 
                 if (olderCandles.length < HISTORY_PAGE_SIZE) {
                     hasMoreHistory = false;
@@ -772,19 +861,13 @@ document.addEventListener('DOMContentLoaded', function () {
                             preserveLogicalRange: true
                         });
 
-                        if (previousRange && addedCount > 0) {
-                            requestAnimationFrame(function () {
-                                chart.timeScale().setVisibleLogicalRange({
-                                    from: previousRange.from + addedCount,
-                                    to: previousRange.to + addedCount
-                                });
-                            });
-                        }
+                        restoreViewportAfterHistoryLoad(previousRange, addedCount);
                     });
             })
             .catch(function (error) {
                 console.error('Error loading older history:', error);
                 showError(error.message);
+                lastHistoryRequestTo = null;
             })
             .finally(function () {
                 isLoadingOlder = false;
@@ -792,14 +875,36 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function handleVisibleRangeChange(logicalRange) {
-        if (!logicalRange) {
+        if (!logicalRange || suppressVisibleRangeHandler) {
             return;
         }
 
-        if (logicalRange.from <= LEFT_EDGE_THRESHOLD) {
-            loadOlderHistory();
+        if (visibleRangeAnimationFrameId !== null) {
+            cancelAnimationFrame(visibleRangeAnimationFrameId);
         }
+
+        visibleRangeAnimationFrameId = requestAnimationFrame(function () {
+            visibleRangeAnimationFrameId = null;
+
+            const currentRange = chart.timeScale().getVisibleLogicalRange();
+
+            if (!currentRange) {
+                return;
+            }
+
+            if (shouldLoadOlderHistory(currentRange)) {
+                loadOlderHistory();
+            }
+        });
     }
+
+    function markUserInteraction() {
+        userInteractedWithChart = true;
+    }
+
+    chartContainer.addEventListener('wheel', markUserInteraction, { passive: true });
+    chartContainer.addEventListener('mousedown', markUserInteraction);
+    chartContainer.addEventListener('touchstart', markUserInteraction, { passive: true });
 
     updateIndicatorLabels();
     updateInteractionOptions();
