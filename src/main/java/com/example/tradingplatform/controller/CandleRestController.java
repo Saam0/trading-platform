@@ -23,8 +23,14 @@ public class CandleRestController {
 
     private final CandleService candleService;
 
+
     @GetMapping("/api/candles")
     public List<Candle> getCandles(@Valid @ModelAttribute CandleQuery query) {
-        return candleService.getCandles(query.getTicker(), String.valueOf(query.getInterval()));
+        return candleService.getCandles(
+                query.getTicker(),
+                String.valueOf(query.getInterval()),
+                query.getLimit(),
+                query.getTo()
+        );
     }
 }

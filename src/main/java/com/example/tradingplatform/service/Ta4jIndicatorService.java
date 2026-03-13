@@ -3,6 +3,7 @@ package com.example.tradingplatform.service;
 import com.example.tradingplatform.dto.ChandelierExitPoint;
 import com.example.tradingplatform.dto.SmaPoint;
 import com.example.tradingplatform.model.Candle;
+import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.ta4j.core.BarSeries;
 import org.ta4j.core.BaseBar;
@@ -22,17 +23,15 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Service
+@AllArgsConstructor
 public class Ta4jIndicatorService implements  IndicatorService {
 
     private final CandleService candleService;
 
-    public Ta4jIndicatorService(CandleService candleService) {
-        this.candleService = candleService;
-    }
 
     @Override
-    public List<SmaPoint> getSma(String ticker, String interval, int period) {
-        List<Candle> candles = candleService.getCandles(ticker, interval);
+    public List<SmaPoint> getSma(String ticker, String interval, int period, int limit, Long to) {
+        List<Candle> candles = candleService.getCandles(ticker, interval, limit, to);
         BarSeries series = buildSeries(candles, interval);
 
         ClosePriceIndicator closePriceIndicator = new ClosePriceIndicator(series);
@@ -55,8 +54,8 @@ public class Ta4jIndicatorService implements  IndicatorService {
     }
 
     @Override
-    public List<SmaPoint> getEma(String ticker, String interval, int period) {
-        List<Candle> candles = candleService.getCandles(ticker, interval);
+    public List<SmaPoint> getEma(String ticker, String interval, int period, int limit, Long to) {
+        List<Candle> candles = candleService.getCandles(ticker, interval, limit, to);
         BarSeries series = buildSeries(candles, interval);
 
         ClosePriceIndicator closePriceIndicator = new ClosePriceIndicator(series);
@@ -87,9 +86,11 @@ public class Ta4jIndicatorService implements  IndicatorService {
             String interval,
             int length,
             double multiplier,
-            boolean useClose
+            boolean useClose,
+            int limit,
+            Long to
     ) {
-        List<Candle> candles = candleService.getCandles(ticker, interval);
+        List<Candle> candles = candleService.getCandles(ticker, interval, limit, to);
 
         List<Double> atrValues = calculateAtr(candles, length);
         List<ChandelierExitPoint> points = new ArrayList<>();

@@ -30,7 +30,7 @@ public class XChangeCandleService implements CandleService {
     private final ExchangeFactoryService exchangeFactoryService;
 
     @Override
-    public List<Candle> getCandles(String ticker, String interval) {
+    public List<Candle> getCandles(String ticker, String interval, int limit, Long to) {
         try {
             Exchange exchange = exchangeFactoryService.createBinanceExchange();
             CurrencyPair currencyPair = exchangeFactoryService.toCurrencyPair(ticker);
@@ -42,9 +42,9 @@ public class XChangeCandleService implements CandleService {
             List<BinanceKline> klines = marketDataService.klines(
                     currencyPair,
                     klineInterval,
-                    200,
+                    limit,
                     null,
-                    null
+                    to
             );
 
             List<Candle> candles = new ArrayList<>();

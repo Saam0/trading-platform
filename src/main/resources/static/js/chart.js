@@ -1,4 +1,6 @@
 document.addEventListener('DOMContentLoaded', function () {
+    console.log('chart.js VERSION: historical-lazy-loading-v2');
+
     const chartContainer = document.getElementById('chart');
     const tickerSelect = document.getElementById('tickerSelect');
     const intervalSelect = document.getElementById('intervalSelect');
@@ -26,6 +28,10 @@ document.addEventListener('DOMContentLoaded', function () {
     const showSmaLabel = document.getElementById('showSmaLabel');
     const showEmaLabel = document.getElementById('showEmaLabel');
     const showCeLabel = document.getElementById('showCeLabel');
+
+    const INITIAL_LIMIT = 30;
+    const HISTORY_PAGE_SIZE = 30;
+    const LEFT_EDGE_THRESHOLD = 5;
 
     const chart = LightweightCharts.createChart(chartContainer, {
         width: chartContainer.clientWidth,
@@ -76,6 +82,10 @@ document.addEventListener('DOMContentLoaded', function () {
     let ceLongSegmentSeries = [];
     let ceShortSegmentSeries = [];
     let ceMarkersPrimitive = null;
+
+    let allCandles = [];
+    let isLoadingOlder = false;
+    let hasMoreHistory = true;
 
     function createPriceSeries() {
         if (typeof chart.addSeries === 'function' && LightweightCharts.CandlestickSeries) {
@@ -226,11 +236,9 @@ document.addEventListener('DOMContentLoaded', function () {
                     time: point.time,
                     value: Number(stopValue)
                 });
-            } else {
-                if (currentSegment.length > 0) {
-                    segments.push(currentSegment);
-                    currentSegment = [];
-                }
+            } else if (currentSegment.length > 0) {
+                segments.push(currentSegment);
+                currentSegment = [];
             }
         });
 
@@ -297,7 +305,8 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-    function showLoading() {
+    function showLoading(message) {
+        loadingMessage.textContent = message || 'Loading...';
         loadingMessage.classList.remove('d-none');
         errorMessage.classList.add('d-none');
     }
@@ -407,102 +416,183 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    function loadCandles() {
-        const ticker = tickerSelect.value;
-        const interval = intervalSelect.value;
-
-        const url = '/api/candles?ticker='
-            + encodeURIComponent(ticker)
-            + '&interval='
-            + encodeURIComponent(interval);
-
-        return fetch(url)
-            .then(function (response) {
-                if (!response.ok) {
-                    return response.json().then(function (errorBody) {
-                        throw new Error(errorBody.message || 'Failed to load candles');
-                    });
-                }
-                return response.json();
-            });
+    function captureChartViewState() {
+        return {
+            logicalRange: chart.timeScale().getVisibleLogicalRange(),
+            scrollPosition: chart.timeScale().scrollPosition()
+        };
     }
 
-    function loadSma() {
-        const ticker = tickerSelect.value;
-        const interval = intervalSelect.value;
-        const period = smaPeriodSelect.value;
+    function restoreChartViewState(viewState) {
+        if (!viewState) {
+            return;
+        }
 
-        const url = '/api/indicators/sma?ticker='
-            + encodeURIComponent(ticker)
+        requestAnimationFrame(function () {
+            if (viewState.logicalRange) {
+                chart.timeScale().setVisibleLogicalRange(viewState.logicalRange);
+                return;
+            }
+
+            if (typeof viewState.scrollPosition === 'number') {
+                chart.timeScale().scrollToPosition(viewState.scrollPosition, false);
+            }
+        });
+    }
+
+    function candleTimeToMillis(time) {
+        if (typeof time === 'number') {
+            return time * 1000;
+        }
+
+        if (typeof time === 'string' && time.length === 10) {
+            return Date.parse(time + 'T00:00:00Z');
+        }
+
+        return Date.parse(time);
+    }
+
+    function getOldestCandleTimeMillis() {
+        if (allCandles.length === 0) {
+            return null;
+        }
+
+        return candleTimeToMillis(allCandles[0].time);
+    }
+
+    function mergeCandles(existingCandles, newOlderCandles) {
+        const merged = newOlderCandles.concat(existingCandles);
+        const uniqueByTime = new Map();
+
+        merged.forEach(function (candle) {
+            uniqueByTime.set(String(candle.time), candle);
+        });
+
+        return Array.from(uniqueByTime.values()).sort(function (a, b) {
+            return candleTimeToMillis(a.time) - candleTimeToMillis(b.time);
+        });
+    }
+
+    function buildCandlesUrl(limit, to) {
+        let url = '/api/candles?ticker='
+            + encodeURIComponent(tickerSelect.value)
             + '&interval='
-            + encodeURIComponent(interval)
+            + encodeURIComponent(intervalSelect.value)
+            + '&limit='
+            + encodeURIComponent(limit);
+
+        if (to !== null && to !== undefined) {
+            url += '&to=' + encodeURIComponent(to);
+        }
+
+        return url;
+    }
+
+    function buildSmaUrl(limit, to) {
+        let url = '/api/indicators/sma?ticker='
+            + encodeURIComponent(tickerSelect.value)
+            + '&interval='
+            + encodeURIComponent(intervalSelect.value)
             + '&period='
-            + encodeURIComponent(period);
+            + encodeURIComponent(smaPeriodSelect.value)
+            + '&limit='
+            + encodeURIComponent(limit);
 
-        return fetch(url)
-            .then(function (response) {
-                if (!response.ok) {
-                    return response.json().then(function (errorBody) {
-                        throw new Error(errorBody.message || 'Failed to load SMA');
-                    });
-                }
-                return response.json();
-            });
+        if (to !== null && to !== undefined) {
+            url += '&to=' + encodeURIComponent(to);
+        }
+
+        return url;
     }
 
-    function loadEma() {
-        const ticker = tickerSelect.value;
-        const interval = intervalSelect.value;
-        const period = emaPeriodSelect.value;
-
-        const url = '/api/indicators/ema?ticker='
-            + encodeURIComponent(ticker)
+    function buildEmaUrl(limit, to) {
+        let url = '/api/indicators/ema?ticker='
+            + encodeURIComponent(tickerSelect.value)
             + '&interval='
-            + encodeURIComponent(interval)
+            + encodeURIComponent(intervalSelect.value)
             + '&period='
-            + encodeURIComponent(period);
+            + encodeURIComponent(emaPeriodSelect.value)
+            + '&limit='
+            + encodeURIComponent(limit);
 
-        return fetch(url)
-            .then(function (response) {
-                if (!response.ok) {
-                    return response.json().then(function (errorBody) {
-                        throw new Error(errorBody.message || 'Failed to load EMA');
-                    });
-                }
-                return response.json();
-            });
+        if (to !== null && to !== undefined) {
+            url += '&to=' + encodeURIComponent(to);
+        }
+
+        return url;
     }
 
-    function loadChandelierExit() {
-        const ticker = tickerSelect.value;
-        const interval = intervalSelect.value;
-        const length = ceLengthSelect.value;
-        const multiplier = ceMultiplierInput.value;
-        const useClose = ceUseCloseToggle.checked;
-
-        const url = '/api/indicators/chandelier-exit?ticker='
-            + encodeURIComponent(ticker)
+    function buildCeUrl(limit, to) {
+        let url = '/api/indicators/chandelier-exit?ticker='
+            + encodeURIComponent(tickerSelect.value)
             + '&interval='
-            + encodeURIComponent(interval)
+            + encodeURIComponent(intervalSelect.value)
             + '&length='
-            + encodeURIComponent(length)
+            + encodeURIComponent(ceLengthSelect.value)
             + '&multiplier='
-            + encodeURIComponent(multiplier)
+            + encodeURIComponent(ceMultiplierInput.value)
             + '&useClose='
-            + encodeURIComponent(useClose);
+            + encodeURIComponent(ceUseCloseToggle.checked)
+            + '&limit='
+            + encodeURIComponent(limit);
 
+        if (to !== null && to !== undefined) {
+            url += '&to=' + encodeURIComponent(to);
+        }
+
+        return url;
+    }
+
+    function fetchJson(url, defaultMessage) {
         return fetch(url)
             .then(function (response) {
                 if (!response.ok) {
-                    return response.json().then(function (errorBody) {
-                        throw new Error(errorBody.message || 'Failed to load Chandelier Exit');
-                    });
+                    return response.json()
+                        .then(function (errorBody) {
+                            throw new Error(errorBody.message || defaultMessage);
+                        })
+                        .catch(function () {
+                            throw new Error(defaultMessage);
+                        });
                 }
+
                 return response.json();
             });
     }
 
-    function applyData(candleData, smaData, emaData, ceData) {
+    function loadCandles(limit, to) {
+        return fetchJson(
+            buildCandlesUrl(limit, to),
+            'Failed to load candles'
+        );
+    }
+
+    function loadSma(limit, to) {
+        return fetchJson(
+            buildSmaUrl(limit, to),
+            'Failed to load SMA'
+        );
+    }
+
+    function loadEma(limit, to) {
+        return fetchJson(
+            buildEmaUrl(limit, to),
+            'Failed to load EMA'
+        );
+    }
+
+    function loadChandelierExit(limit, to) {
+        return fetchJson(
+            buildCeUrl(limit, to),
+            'Failed to load Chandelier Exit'
+        );
+    }
+
+    function applyData(candleData, smaData, emaData, ceData, options) {
+        const resetView = options && options.resetView === true;
+        const preserveLogicalRange = options && options.preserveLogicalRange === true;
+        const viewState = options ? options.viewState : null;
+
         candlestickSeries.setData(candleData);
 
         if (showVolumeToggle.checked) {
@@ -534,36 +624,62 @@ document.addEventListener('DOMContentLoaded', function () {
             clearMarkers();
         }
 
-        chart.timeScale().fitContent();
+        if (resetView) {
+            chart.timeScale().fitContent();
+        } else if (!preserveLogicalRange) {
+            restoreChartViewState(viewState);
+        }
+
         updateInfoLabels(candleData);
         errorMessage.classList.add('d-none');
     }
 
-    function loadAllData() {
-        showLoading();
-
-        const candlePromise = loadCandles();
-
+    function buildIndicatorPromises(limit, to) {
         const smaPromise = showSmaToggle.checked
-            ? loadSma()
+            ? loadSma(limit, to)
             : Promise.resolve([]);
 
         const emaPromise = showEmaToggle.checked
-            ? loadEma()
+            ? loadEma(limit, to)
             : Promise.resolve([]);
 
         const cePromise = showCeToggle.checked
-            ? loadChandelierExit()
+            ? loadChandelierExit(limit, to)
             : Promise.resolve([]);
 
-        Promise.all([candlePromise, smaPromise, emaPromise, cePromise])
+        return [smaPromise, emaPromise, cePromise];
+    }
+
+    function loadInitialData(options) {
+        const resetView = options && options.resetView === true;
+        const viewState = resetView ? null : captureChartViewState();
+
+        allCandles = [];
+        isLoadingOlder = false;
+        hasMoreHistory = true;
+
+        showLoading('Loading candles...');
+
+        const candlePromise = loadCandles(INITIAL_LIMIT, null);
+        const indicatorPromises = buildIndicatorPromises(INITIAL_LIMIT, null);
+
+        Promise.all([candlePromise].concat(indicatorPromises))
             .then(function (results) {
                 const candleData = results[0];
                 const smaData = results[1];
                 const emaData = results[2];
                 const ceData = results[3];
 
-                applyData(candleData, smaData, emaData, ceData);
+                allCandles = candleData;
+
+                if (candleData.length < INITIAL_LIMIT) {
+                    hasMoreHistory = false;
+                }
+
+                applyData(candleData, smaData, emaData, ceData, {
+                    resetView: resetView,
+                    viewState: viewState
+                });
             })
             .catch(function (error) {
                 console.error('Error loading chart data:', error);
@@ -574,42 +690,155 @@ document.addEventListener('DOMContentLoaded', function () {
             });
     }
 
+    function reloadCurrentWindow(options) {
+        const resetView = options && options.resetView === true;
+        const viewState = resetView ? null : captureChartViewState();
+        const currentLimit = allCandles.length > 0 ? allCandles.length : INITIAL_LIMIT;
+
+        showLoading('Reloading indicators...');
+
+        const candlePromise = allCandles.length > 0
+            ? Promise.resolve(allCandles)
+            : loadCandles(currentLimit, null);
+
+        const indicatorPromises = buildIndicatorPromises(currentLimit, null);
+
+        Promise.all([candlePromise].concat(indicatorPromises))
+            .then(function (results) {
+                const candleData = results[0];
+                const smaData = results[1];
+                const emaData = results[2];
+                const ceData = results[3];
+
+                allCandles = candleData;
+
+                applyData(candleData, smaData, emaData, ceData, {
+                    resetView: resetView,
+                    viewState: viewState
+                });
+            })
+            .catch(function (error) {
+                console.error('Error reloading chart window:', error);
+                showError(error.message);
+            })
+            .finally(function () {
+                hideLoading();
+            });
+    }
+
+    function loadOlderHistory() {
+        if (isLoadingOlder || !hasMoreHistory || allCandles.length === 0) {
+            return;
+        }
+
+        isLoadingOlder = true;
+
+        const oldestTime = getOldestCandleTimeMillis();
+
+        if (oldestTime === null) {
+            isLoadingOlder = false;
+            return;
+        }
+
+        const requestTo = oldestTime - 1;
+        const previousRange = chart.timeScale().getVisibleLogicalRange();
+
+        loadCandles(HISTORY_PAGE_SIZE, requestTo)
+            .then(function (olderCandles) {
+                if (!olderCandles || olderCandles.length === 0) {
+                    hasMoreHistory = false;
+                    return Promise.resolve([]);
+                }
+
+                const oldLength = allCandles.length;
+                allCandles = mergeCandles(allCandles, olderCandles);
+                const addedCount = allCandles.length - oldLength;
+
+                if (olderCandles.length < HISTORY_PAGE_SIZE) {
+                    hasMoreHistory = false;
+                }
+
+                const fullLimit = allCandles.length;
+                const indicatorPromises = buildIndicatorPromises(fullLimit, null);
+
+                return Promise.all(indicatorPromises)
+                    .then(function (indicatorResults) {
+                        const smaData = indicatorResults[0];
+                        const emaData = indicatorResults[1];
+                        const ceData = indicatorResults[2];
+
+                        applyData(allCandles, smaData, emaData, ceData, {
+                            resetView: false,
+                            preserveLogicalRange: true
+                        });
+
+                        if (previousRange && addedCount > 0) {
+                            requestAnimationFrame(function () {
+                                chart.timeScale().setVisibleLogicalRange({
+                                    from: previousRange.from + addedCount,
+                                    to: previousRange.to + addedCount
+                                });
+                            });
+                        }
+                    });
+            })
+            .catch(function (error) {
+                console.error('Error loading older history:', error);
+                showError(error.message);
+            })
+            .finally(function () {
+                isLoadingOlder = false;
+            });
+    }
+
+    function handleVisibleRangeChange(logicalRange) {
+        if (!logicalRange) {
+            return;
+        }
+
+        if (logicalRange.from <= LEFT_EDGE_THRESHOLD) {
+            loadOlderHistory();
+        }
+    }
+
     updateIndicatorLabels();
     updateInteractionOptions();
     ensureVolumePane();
-    loadAllData();
+    loadInitialData({ resetView: true });
+
+    chart.timeScale().subscribeVisibleLogicalRangeChange(handleVisibleRangeChange);
 
     tickerSelect.addEventListener('change', function () {
-        loadAllData();
+        loadInitialData({ resetView: true });
     });
 
     intervalSelect.addEventListener('change', function () {
-        loadAllData();
+        loadInitialData({ resetView: true });
     });
 
     smaPeriodSelect.addEventListener('change', function () {
         updateIndicatorLabels();
-        loadAllData();
+        reloadCurrentWindow({ resetView: false });
     });
 
     emaPeriodSelect.addEventListener('change', function () {
         updateIndicatorLabels();
-        loadAllData();
+        reloadCurrentWindow({ resetView: false });
     });
 
     ceLengthSelect.addEventListener('change', function () {
         updateIndicatorLabels();
-        loadAllData();
+        reloadCurrentWindow({ resetView: false });
     });
 
     ceMultiplierInput.addEventListener('change', function () {
         updateIndicatorLabels();
-        loadAllData();
+        reloadCurrentWindow({ resetView: false });
     });
 
     ceUseCloseToggle.addEventListener('change', function () {
         updateIndicatorLabels();
-        loadAllData();
+        reloadCurrentWindow({ resetView: false });
     });
 
     enableScaleToggle.addEventListener('change', function () {
@@ -621,20 +850,20 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     showVolumeToggle.addEventListener('change', function () {
-        loadAllData();
+        reloadCurrentWindow({ resetView: false });
     });
 
     showSmaToggle.addEventListener('change', function () {
-        loadAllData();
+        reloadCurrentWindow({ resetView: false });
     });
 
     showEmaToggle.addEventListener('change', function () {
-        loadAllData();
+        reloadCurrentWindow({ resetView: false });
     });
 
     showCeToggle.addEventListener('change', function () {
         updateIndicatorLabels();
-        loadAllData();
+        reloadCurrentWindow({ resetView: false });
     });
 
     window.addEventListener('resize', function () {

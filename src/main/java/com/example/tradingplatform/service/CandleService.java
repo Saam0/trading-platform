@@ -5,5 +5,9 @@ import com.example.tradingplatform.model.Candle;
 import java.util.List;
 
 public interface CandleService {
-    List<Candle> getCandles(String ticker, String interval);;
+//    List<Candle> getCandles(String ticker, String interval);;
+    List<Candle> getCandles(String ticker, String interval, int limit, Long to);;
+
 }
+
+

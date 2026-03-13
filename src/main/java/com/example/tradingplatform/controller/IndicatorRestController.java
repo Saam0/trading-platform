@@ -19,17 +19,22 @@ public class IndicatorRestController {
     public List<SmaPoint> getSma(
             @RequestParam(defaultValue = "BTCUSDT") String ticker,
             @RequestParam(defaultValue = "d1") String interval,
-            @RequestParam(defaultValue = "5") int period
+            @RequestParam(defaultValue = "5") int period,
+            @RequestParam(defaultValue = "30") int limit,
+            @RequestParam(required = false) Long to
     ) {
-        return indicatorService.getSma(ticker, interval, period);
+        return indicatorService.getSma(ticker, interval, period, limit, to);
     }
+
     @GetMapping("/api/indicators/ema")
     public List<SmaPoint> getEma(
             @RequestParam(defaultValue = "BTCUSDT") String ticker,
             @RequestParam(defaultValue = "d1") String interval,
-            @RequestParam(defaultValue = "20") int period
+            @RequestParam(defaultValue = "20") int period,
+            @RequestParam(defaultValue = "30") int limit,
+            @RequestParam(required = false) Long to
     ) {
-        return indicatorService.getEma(ticker, interval, period);
+        return indicatorService.getEma(ticker, interval, period,  limit, to);
     }
 
     @GetMapping("/api/indicators/chandelier-exit")
@@ -38,8 +43,10 @@ public class IndicatorRestController {
             @RequestParam(defaultValue = "d1") String interval,
             @RequestParam(defaultValue = "22") int length,
             @RequestParam(defaultValue = "3.0") double multiplier,
-            @RequestParam(defaultValue = "true") boolean useClose
+            @RequestParam(defaultValue = "true") boolean useClose,
+            @RequestParam(defaultValue = "30") int limit,
+            @RequestParam(required = false) Long to
     ) {
-        return indicatorService.getChandelierExit(ticker, interval, length, multiplier, useClose);
+        return indicatorService.getChandelierExit(ticker, interval, length, multiplier, useClose, limit, to);
     }
 }

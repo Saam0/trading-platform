@@ -3,18 +3,53 @@ package com.example.tradingplatform.service;
 import com.example.tradingplatform.model.Candle;
 import org.springframework.stereotype.Service;
 
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
 public class FakeCandleService implements CandleService {
+
     @Override
-    public List<Candle> getCandles(String ticker, String interval) {
-        return switch (ticker.toUpperCase()) {
+    public List<Candle> getCandles(String ticker, String interval, int limit, Long to) {
+        List<Candle> allCandles = switch (ticker.toUpperCase()) {
             case "ETHUSDT" -> getEthCandles();
             case "SOLUSDT" -> getSolCandles();
             case "BTCUSDT" -> getBtcCandles();
             default -> getBtcCandles();
         };
+
+        List<Candle> filtered = new ArrayList<>();
+
+        for (Candle candle : allCandles) {
+            long candleTime = toEpochMillis(candle.getTime());
+
+            if (to == null || candleTime <= to) {
+                filtered.add(candle);
+            }
+        }
+
+        int fromIndex = Math.max(filtered.size() - limit, 0);
+        return filtered.subList(fromIndex, filtered.size());
+    }
+
+    private long toEpochMillis(Object time) {
+        if (time instanceof Number number) {
+            return number.longValue() * 1000L;
+        }
+
+        String value = String.valueOf(time);
+
+        if (value.length() == 10) {
+            return LocalDate.parse(value)
+                    .atStartOfDay()
+                    .toInstant(ZoneOffset.UTC)
+                    .toEpochMilli();
+        }
+
+        return Instant.parse(value).toEpochMilli();
     }
 
     private List<Candle> getBtcCandles() {
@@ -61,6 +96,4 @@ public class FakeCandleService implements CandleService {
                 new Candle("2026-03-10", 152, 158, 151, 157, 49698.6)
         );
     }
-
-
 }
