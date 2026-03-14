@@ -43,4 +43,7 @@ public class BacktestRequest {
     private double multiplier = 3.0;
 
     private boolean useClose = true;
+
+    @DecimalMin(value = "0.01", message = "Initial capital must be greater than 0")
+    private double initialCapital = 1000.0;
 }

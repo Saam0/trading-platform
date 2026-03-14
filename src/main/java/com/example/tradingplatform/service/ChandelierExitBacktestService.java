@@ -37,6 +37,8 @@ public class ChandelierExitBacktestService implements BacktestService {
 
     @Override
     public BacktestResultDto runChandelierExitBacktest(BacktestRequest request) {
+        validateRequest(request);
+
         List<Candle> candles = candleService.getCandles(
                 request.getTicker(),
                 request.getInterval(),
@@ -84,7 +86,7 @@ public class ChandelierExitBacktestService implements BacktestService {
         double entryPrice = 0.0;
 
         double totalPnl = 0.0;
-        double equity = 1.0;
+        double capital = request.getInitialCapital();
 
         for (int i = request.getLength() - 1; i < series.getBarCount(); i++) {
             Num rawLongStop = highestIndicator.getValue(i)
@@ -144,7 +146,7 @@ public class ChandelierExitBacktestService implements BacktestService {
 
                 trades.add(trade);
                 totalPnl += trade.getPnl();
-                equity *= (1.0 + trade.getPnlPercent() / 100.0);
+                capital = capital * (1.0 + trade.getPnlPercent() / 100.0);
 
                 inPosition = false;
                 entryIndex = -1;
@@ -173,7 +175,7 @@ public class ChandelierExitBacktestService implements BacktestService {
 
             trades.add(trade);
             totalPnl += trade.getPnl();
-            equity *= (1.0 + trade.getPnlPercent() / 100.0);
+            capital = capital * (1.0 + trade.getPnlPercent() / 100.0);
         }
 
         int winningTrades = 0;
@@ -189,7 +191,14 @@ public class ChandelierExitBacktestService implements BacktestService {
 
         int totalTrades = trades.size();
         double winRate = totalTrades == 0 ? 0.0 : (winningTrades * 100.0) / totalTrades;
-        double totalPnlPercent = (equity - 1.0) * 100.0;
+        double totalPnlPercent = request.getInitialCapital() == 0.0
+                ? 0.0
+                : ((capital - request.getInitialCapital()) / request.getInitialCapital()) * 100.0;
+        double finalCapital = capital;
+        double netProfit = finalCapital - request.getInitialCapital();
+        double netProfitPercent = request.getInitialCapital() == 0.0
+                ? 0.0
+                : (netProfit / request.getInitialCapital()) * 100.0;
 
         return new BacktestResultDto(
                 "Chandelier Exit",
@@ -201,6 +210,10 @@ public class ChandelierExitBacktestService implements BacktestService {
                 request.getLength(),
                 request.getMultiplier(),
                 request.isUseClose(),
+                round(request.getInitialCapital()),
+                round(finalCapital),
+                round(netProfit),
+                round(netProfitPercent),
                 candles.get(0).getTime(),
                 candles.get(candles.size() - 1).getTime(),
                 totalTrades,
@@ -211,6 +224,12 @@ public class ChandelierExitBacktestService implements BacktestService {
                 round(totalPnlPercent),
                 trades
         );
+    }
+
+    private void validateRequest(BacktestRequest request) {
+        if (request.getFrom() != null && request.getTo() != null && request.getFrom() >= request.getTo()) {
+            throw new InvalidRequestException("Parameter 'from' must be less than 'to'");
+        }
     }
 
     private BacktestTradeDto closeTrade(

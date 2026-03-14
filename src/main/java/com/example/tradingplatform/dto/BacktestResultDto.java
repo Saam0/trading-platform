@@ -29,6 +29,14 @@ public class BacktestResultDto {
 
     private boolean useClose;
 
+    private double initialCapital;
+
+    private double finalCapital;
+
+    private double netProfit;
+
+    private double netProfitPercent;
+
     private Object startTime;
 
     private Object endTime;

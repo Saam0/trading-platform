@@ -179,9 +179,134 @@
             </div>
         </div>
     </div>
+    <div class="row mt-4 g-3">
+
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header">
+                    <strong>Chandelier Exit Backtest</strong>
+                </div>
+
+                <div class="card-body">
+
+                    <div class="row g-3 align-items-end">
+
+                        <div class="col-md-2">
+                            <label class="form-label">Candle Count</label>
+                            <input type="number"
+                                   class="form-control"
+                                   id="btLimit"
+                                   value="300"
+                                   min="20"
+                                   max="2000">
+                        </div>
+
+                        <div class="col-md-3">
+                            <label class="form-label">From</label>
+                            <input type="datetime-local"
+                                   class="form-control"
+                                   id="btFrom">
+                        </div>
+
+                        <div class="col-md-3">
+                            <label class="form-label">To</label>
+                            <input type="datetime-local"
+                                   class="form-control"
+                                   id="btTo">
+                        </div>
+
+                        <div class="col-md-2">
+                            <label class="form-label">Deposit</label>
+                            <input type="number"
+                                   class="form-control"
+                                   id="btCapital"
+                                   value="1000">
+                        </div>
+
+                        <div class="col-md-1">
+                            <label class="form-label">Length</label>
+                            <input type="number"
+                                   class="form-control"
+                                   id="btLength"
+                                   value="22">
+                        </div>
+
+                        <div class="col-md-1">
+                            <label class="form-label">Mult</label>
+                            <input type="number"
+                                   class="form-control"
+                                   id="btMult"
+                                   step="0.1"
+                                   value="3.0">
+                        </div>
+
+                        <div class="col-md-1 d-grid">
+                            <button id="runBacktestBtn"
+                                    class="btn btn-primary">
+                                Run
+                            </button>
+                        </div>
+
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+
+        <div class="col-12">
+
+            <div class="card shadow-sm">
+
+                <div class="card-header">
+                    <strong>Backtest Summary</strong>
+                </div>
+
+                <div class="card-body">
+
+                    <div id="btSummary" class="row g-3">
+
+                        <div class="col-md-3">
+                            <div class="border p-3 rounded">
+                                Initial Capital:
+                                <strong id="btInitial">-</strong>
+                            </div>
+                        </div>
+
+                        <div class="col-md-3">
+                            <div class="border p-3 rounded">
+                                Final Capital:
+                                <strong id="btFinal">-</strong>
+                            </div>
+                        </div>
+
+                        <div class="col-md-3">
+                            <div class="border p-3 rounded">
+                                Net Profit:
+                                <strong id="btProfit">-</strong>
+                            </div>
+                        </div>
+
+                        <div class="col-md-3">
+                            <div class="border p-3 rounded">
+                                Win Rate:
+                                <strong id="btWinRate">-</strong>
+                            </div>
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
 
 </div>
 
 <script src="/js/chart.js?v=2"></script>
+<script src="/js/backtest.js?v=1"></script>
 </body>
 </html>
