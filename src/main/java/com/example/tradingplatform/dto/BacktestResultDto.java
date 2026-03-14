@@ -19,6 +19,18 @@ public class BacktestResultDto {
 
     private int limit;
 
+    private Long to;
+
+    private int length;
+
+    private double multiplier;
+
+    private boolean useClose;
+
+    private Object startTime;
+
+    private Object endTime;
+
     private int totalTrades;
 
     private int winningTrades;
