@@ -1,10 +1,16 @@
 package com.example.tradingplatform.dto;
 
-import jakarta.validation.constraints.*;
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Positive;
 import lombok.Data;
 
 @Data
 public class BacktestRequest {
+
     @NotBlank(message = "Ticker is required")
     @Pattern(
             regexp = "^[A-Z0-9]{3,15}$",
@@ -22,6 +28,9 @@ public class BacktestRequest {
     @Min(value = 20, message = "Limit must be at least 20")
     @Max(value = 1000, message = "Limit must be at most 1000")
     private int limit = 300;
+
+    @Positive(message = "Parameter 'from' must be positive")
+    private Long from;
 
     @Positive(message = "Parameter 'to' must be positive")
     private Long to;

@@ -5,14 +5,10 @@ import com.example.tradingplatform.exchange.ExchangeFactoryService;
 import com.example.tradingplatform.model.Candle;
 import lombok.AllArgsConstructor;
 import org.knowm.xchange.Exchange;
-import org.knowm.xchange.binance.BinanceAdapters;
 import org.knowm.xchange.binance.dto.marketdata.BinanceKline;
 import org.knowm.xchange.binance.dto.marketdata.KlineInterval;
 import org.knowm.xchange.binance.service.BinanceMarketDataServiceRaw;
 import org.knowm.xchange.currency.CurrencyPair;
-import org.knowm.xchange.dto.marketdata.CandleStick;
-import org.knowm.xchange.dto.marketdata.CandleStickData;
-import org.knowm.xchange.service.trade.params.CandleStickDataParams;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Service;
 
@@ -30,7 +26,7 @@ public class XChangeCandleService implements CandleService {
     private final ExchangeFactoryService exchangeFactoryService;
 
     @Override
-    public List<Candle> getCandles(String ticker, String interval, int limit, Long to) {
+    public List<Candle> getCandles(String ticker, String interval, int limit, Long from, Long to) {
         try {
             Exchange exchange = exchangeFactoryService.createBinanceExchange();
             CurrencyPair currencyPair = exchangeFactoryService.toCurrencyPair(ticker);
@@ -43,7 +39,7 @@ public class XChangeCandleService implements CandleService {
                     currencyPair,
                     klineInterval,
                     limit,
-                    null,
+                    from,
                     to
             );
 
@@ -54,7 +50,6 @@ public class XChangeCandleService implements CandleService {
             }
 
             return candles;
-
         } catch (IOException exception) {
             throw new RuntimeException("Failed to load candles from Binance", exception);
         }
@@ -83,8 +78,7 @@ public class XChangeCandleService implements CandleService {
                     .toLocalDate()
                     .toString();
         } else {
-            time = Instant.ofEpochMilli(kline.getOpenTime())
-                    .getEpochSecond();
+            time = Instant.ofEpochMilli(kline.getOpenTime()).getEpochSecond();
         }
 
         return new Candle(

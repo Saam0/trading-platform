@@ -13,8 +13,8 @@ import java.util.List;
 public class FakeCandleService implements CandleService {
 
     @Override
-    public List<Candle> getCandles(String ticker, String interval, int limit, Long to) {
-        List<Candle> allCandles = switch (ticker.toUpperCase()) {
+    public List<Candle> getCandles(String ticker, String interval, int limit, Long from, Long to) {
+        List<Candle> source = switch (ticker.toUpperCase()) {
             case "ETHUSDT" -> getEthCandles();
             case "SOLUSDT" -> getSolCandles();
             case "BTCUSDT" -> getBtcCandles();
@@ -23,21 +23,28 @@ public class FakeCandleService implements CandleService {
 
         List<Candle> filtered = new ArrayList<>();
 
-        for (Candle candle : allCandles) {
-            long candleTime = toEpochMillis(candle.getTime());
+        for (Candle candle : source) {
+            long candleTimeMillis = toMillis(candle.getTime());
 
-            if (to == null || candleTime <= to) {
+            boolean matchesFrom = from == null || candleTimeMillis >= from;
+            boolean matchesTo = to == null || candleTimeMillis <= to;
+
+            if (matchesFrom && matchesTo) {
                 filtered.add(candle);
             }
         }
 
-        int fromIndex = Math.max(filtered.size() - limit, 0);
-        return filtered.subList(fromIndex, filtered.size());
+        if (filtered.size() <= limit) {
+            return filtered;
+        }
+
+        return filtered.subList(filtered.size() - limit, filtered.size());
     }
 
-    private long toEpochMillis(Object time) {
+    private long toMillis(Object time) {
         if (time instanceof Number number) {
-            return number.longValue() * 1000L;
+            long value = number.longValue();
+            return value > 1_000_000_000_000L ? value : value * 1000;
         }
 
         String value = String.valueOf(time);
@@ -49,51 +56,87 @@ public class FakeCandleService implements CandleService {
                     .toEpochMilli();
         }
 
-        return Instant.parse(value).toEpochMilli();
+        return Instant.parse(value + "Z").toEpochMilli();
     }
 
     private List<Candle> getBtcCandles() {
         return List.of(
-                new Candle("2026-03-01", 84200, 85150, 83850, 84820, 1250.5),
-                new Candle("2026-03-02", 84820, 85600, 84400, 85310, 1480.2),
-                new Candle("2026-03-03", 85310, 86040, 85010, 85790, 1325.8),
-                new Candle("2026-03-04", 85790, 86120, 84550, 84980, 1660.4),
-                new Candle("2026-03-05", 84980, 85430, 84220, 84590, 1195.0),
-                new Candle("2026-03-06", 84590, 85210, 84000, 85050, 1412.7),
-                new Candle("2026-03-07", 85050, 86400, 84880, 86120, 1710.9),
-                new Candle("2026-03-08", 86120, 86890, 85610, 86670, 1804.3),
-                new Candle("2026-03-09", 86670, 87250, 86020, 86340, 1544.1),
-                new Candle("2026-03-10", 86340, 87010, 85830, 86880, 1698.6)
+                new Candle("2026-02-20", 94400, 95200, 93850, 94950, 1180.5),
+                new Candle("2026-02-21", 94950, 95800, 94410, 95520, 1274.9),
+                new Candle("2026-02-22", 95520, 96100, 94880, 95110, 1325.7),
+                new Candle("2026-02-23", 95110, 95740, 94220, 94480, 1492.3),
+                new Candle("2026-02-24", 94480, 94850, 93210, 93620, 1681.2),
+                new Candle("2026-02-25", 93620, 94110, 92800, 93150, 1540.6),
+                new Candle("2026-02-26", 93150, 93880, 92650, 93690, 1434.1),
+                new Candle("2026-02-27", 93690, 94620, 93450, 94320, 1370.5),
+                new Candle("2026-02-28", 94320, 95180, 94010, 94980, 1422.4),
+                new Candle("2026-03-01", 94980, 95640, 94680, 95410, 1350.8),
+                new Candle("2026-03-02", 95410, 95920, 94570, 94810, 1615.9),
+                new Candle("2026-03-03", 94810, 95110, 93640, 93980, 1732.1),
+                new Candle("2026-03-04", 93980, 94430, 92890, 93260, 1814.0),
+                new Candle("2026-03-05", 93260, 93800, 92420, 92840, 1693.5),
+                new Candle("2026-03-06", 92840, 93550, 92210, 93490, 1505.2),
+                new Candle("2026-03-07", 93490, 94600, 93280, 94270, 1467.8),
+                new Candle("2026-03-08", 94270, 95240, 93910, 94990, 1510.3),
+                new Candle("2026-03-09", 94990, 95850, 94660, 95620, 1488.6),
+                new Candle("2026-03-10", 95620, 96420, 95210, 96110, 1554.4),
+                new Candle("2026-03-11", 96110, 96800, 95640, 95840, 1479.0),
+                new Candle("2026-03-12", 95840, 96300, 94820, 95150, 1668.7),
+                new Candle("2026-03-13", 95150, 95760, 94470, 95540, 1582.2)
         );
     }
 
     private List<Candle> getEthCandles() {
         return List.of(
-                new Candle("2026-03-01", 2280, 2315, 2260, 2302, 9200.5),
-                new Candle("2026-03-02", 2302, 2340, 2290, 2331, 10480.2),
-                new Candle("2026-03-03", 2331, 2362, 2310, 2356, 10025.8),
-                new Candle("2026-03-04", 2356, 2368, 2295, 2312, 11660.4),
-                new Candle("2026-03-05", 2312, 2328, 2274, 2289, 9195.0),
-                new Candle("2026-03-06", 2289, 2322, 2270, 2310, 10412.7),
-                new Candle("2026-03-07", 2310, 2380, 2305, 2365, 12710.9),
-                new Candle("2026-03-08", 2365, 2402, 2348, 2390, 13804.3),
-                new Candle("2026-03-09", 2390, 2410, 2352, 2371, 11544.1),
-                new Candle("2026-03-10", 2371, 2420, 2360, 2408, 12698.6)
+                new Candle("2026-02-20", 2620, 2650, 2588, 2635, 8200.4),
+                new Candle("2026-02-21", 2635, 2682, 2620, 2670, 8450.7),
+                new Candle("2026-02-22", 2670, 2691, 2638, 2644, 8311.2),
+                new Candle("2026-02-23", 2644, 2660, 2598, 2608, 8740.9),
+                new Candle("2026-02-24", 2608, 2622, 2550, 2561, 9012.6),
+                new Candle("2026-02-25", 2561, 2595, 2524, 2532, 9155.4),
+                new Candle("2026-02-26", 2532, 2578, 2518, 2560, 8891.1),
+                new Candle("2026-02-27", 2560, 2602, 2548, 2588, 8730.2),
+                new Candle("2026-02-28", 2588, 2624, 2570, 2612, 8615.8),
+                new Candle("2026-03-01", 2612, 2640, 2591, 2629, 8544.3),
+                new Candle("2026-03-02", 2629, 2651, 2582, 2590, 9180.7),
+                new Candle("2026-03-03", 2590, 2608, 2530, 2544, 9624.5),
+                new Candle("2026-03-04", 2544, 2570, 2498, 2510, 9951.0),
+                new Candle("2026-03-05", 2510, 2542, 2485, 2498, 9722.8),
+                new Candle("2026-03-06", 2498, 2538, 2472, 2526, 9485.1),
+                new Candle("2026-03-07", 2526, 2575, 2510, 2568, 9236.4),
+                new Candle("2026-03-08", 2568, 2612, 2550, 2599, 9055.2),
+                new Candle("2026-03-09", 2599, 2630, 2582, 2618, 8940.8),
+                new Candle("2026-03-10", 2618, 2655, 2600, 2646, 9068.9),
+                new Candle("2026-03-11", 2646, 2660, 2609, 2620, 8988.0),
+                new Candle("2026-03-12", 2620, 2634, 2577, 2592, 9277.5),
+                new Candle("2026-03-13", 2592, 2628, 2580, 2610, 9112.3)
         );
     }
 
     private List<Candle> getSolCandles() {
         return List.of(
-                new Candle("2026-03-01", 142, 146, 140, 145, 40250.5),
-                new Candle("2026-03-02", 145, 148, 143, 147, 42480.2),
-                new Candle("2026-03-03", 147, 151, 146, 150, 39025.8),
-                new Candle("2026-03-04", 150, 152, 144, 146, 43660.4),
-                new Candle("2026-03-05", 146, 147, 141, 143, 37195.0),
-                new Candle("2026-03-06", 143, 146, 142, 145, 40412.7),
-                new Candle("2026-03-07", 145, 153, 144, 151, 48710.9),
-                new Candle("2026-03-08", 151, 156, 149, 154, 51804.3),
-                new Candle("2026-03-09", 154, 157, 150, 152, 45544.1),
-                new Candle("2026-03-10", 152, 158, 151, 157, 49698.6)
+                new Candle("2026-02-20", 171, 176, 169, 174, 38200.1),
+                new Candle("2026-02-21", 174, 178, 173, 177, 39020.4),
+                new Candle("2026-02-22", 177, 179, 174, 175, 40111.8),
+                new Candle("2026-02-23", 175, 176, 169, 170, 42770.2),
+                new Candle("2026-02-24", 170, 171, 164, 166, 43980.9),
+                new Candle("2026-02-25", 166, 168, 161, 163, 45212.6),
+                new Candle("2026-02-26", 163, 167, 160, 166, 44510.3),
+                new Candle("2026-02-27", 166, 170, 164, 169, 43221.4),
+                new Candle("2026-02-28", 169, 173, 167, 172, 42155.8),
+                new Candle("2026-03-01", 172, 175, 170, 174, 41590.6),
+                new Candle("2026-03-02", 174, 176, 169, 170, 43855.1),
+                new Candle("2026-03-03", 170, 171, 164, 166, 46330.2),
+                new Candle("2026-03-04", 166, 168, 160, 162, 48940.7),
+                new Candle("2026-03-05", 162, 164, 157, 159, 47210.4),
+                new Candle("2026-03-06", 159, 163, 156, 162, 45544.1),
+                new Candle("2026-03-07", 162, 167, 160, 166, 44010.2),
+                new Candle("2026-03-08", 166, 170, 164, 169, 43022.7),
+                new Candle("2026-03-09", 169, 173, 167, 171, 42100.5),
+                new Candle("2026-03-10", 171, 175, 169, 174, 43330.1),
+                new Candle("2026-03-11", 174, 176, 170, 172, 44111.3),
+                new Candle("2026-03-12", 172, 173, 167, 168, 45200.9),
+                new Candle("2026-03-13", 168, 171, 166, 170, 44780.6)
         );
     }
 }

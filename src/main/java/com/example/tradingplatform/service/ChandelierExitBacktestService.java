@@ -11,8 +11,11 @@ import org.ta4j.core.BaseBar;
 import org.ta4j.core.BaseBarSeriesBuilder;
 import org.ta4j.core.Indicator;
 import org.ta4j.core.indicators.ATRIndicator;
-import org.ta4j.core.indicators.helpers.*;
-
+import org.ta4j.core.indicators.helpers.ClosePriceIndicator;
+import org.ta4j.core.indicators.helpers.HighPriceIndicator;
+import org.ta4j.core.indicators.helpers.HighestValueIndicator;
+import org.ta4j.core.indicators.helpers.LowPriceIndicator;
+import org.ta4j.core.indicators.helpers.LowestValueIndicator;
 import org.ta4j.core.num.Num;
 
 import java.time.Duration;
@@ -38,6 +41,7 @@ public class ChandelierExitBacktestService implements BacktestService {
                 request.getTicker(),
                 request.getInterval(),
                 request.getLimit(),
+                request.getFrom(),
                 request.getTo()
         );
 
@@ -192,6 +196,7 @@ public class ChandelierExitBacktestService implements BacktestService {
                 request.getTicker(),
                 request.getInterval(),
                 request.getLimit(),
+                request.getFrom(),
                 request.getTo(),
                 request.getLength(),
                 request.getMultiplier(),

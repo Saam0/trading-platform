@@ -19,6 +19,8 @@ public class BacktestResultDto {
 
     private int limit;
 
+    private Long from;
+
     private Long to;
 
     private int length;
