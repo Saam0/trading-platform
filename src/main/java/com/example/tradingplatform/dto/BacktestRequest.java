@@ -1,5 +1,6 @@
 package com.example.tradingplatform.dto;
 
+import com.example.tradingplatform.model.BacktestRiskModelType;
 import com.example.tradingplatform.model.BacktestStrategyType;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Max;
@@ -49,4 +50,15 @@ public class BacktestRequest {
 
     @DecimalMin(value = "0.01", message = "Initial capital must be greater than 0")
     private double initialCapital = 1000.0;
+
+    private BacktestRiskModelType riskModelType;
+
+    private double leverage;
+
+    private double riskPercent;
+
+    private double fixedNotional;
+
+    private double feePercent;
+
 }
