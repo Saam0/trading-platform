@@ -1,10 +1,11 @@
-package com.example.tradingplatform.service;
+package com.example.tradingplatform.service.backtest.strategy;
 
 import com.example.tradingplatform.dto.BacktestRequest;
 import com.example.tradingplatform.dto.BacktestResultDto;
 import com.example.tradingplatform.dto.BacktestTradeDto;
 import com.example.tradingplatform.model.BacktestStrategyType;
 import com.example.tradingplatform.model.Candle;
+import com.example.tradingplatform.service.candle.CandleService;
 import org.springframework.stereotype.Service;
 import org.ta4j.core.num.Num;
 

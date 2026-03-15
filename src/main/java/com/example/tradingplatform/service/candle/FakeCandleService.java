@@ -1,4 +1,4 @@
-package com.example.tradingplatform.service;
+package com.example.tradingplatform.service.candle;
 
 import com.example.tradingplatform.model.Candle;
 import org.springframework.stereotype.Service;

@@ -1,4 +1,4 @@
-package com.example.tradingplatform.exchange;
+package com.example.tradingplatform.service.candle;
 
 import com.example.tradingplatform.exception.InvalidRequestException;
 import org.knowm.xchange.Exchange;

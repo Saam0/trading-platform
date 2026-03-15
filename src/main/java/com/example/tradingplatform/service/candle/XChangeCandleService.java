@@ -1,7 +1,6 @@
-package com.example.tradingplatform.service;
+package com.example.tradingplatform.service.candle;
 
 import com.example.tradingplatform.exception.InvalidRequestException;
-import com.example.tradingplatform.exchange.ExchangeFactoryService;
 import com.example.tradingplatform.model.Candle;
 import lombok.AllArgsConstructor;
 import org.knowm.xchange.Exchange;

@@ -2,7 +2,7 @@ package com.example.tradingplatform.controller;
 
 import com.example.tradingplatform.dto.ChandelierExitPoint;
 import com.example.tradingplatform.dto.SmaPoint;
-import com.example.tradingplatform.service.IndicatorService;
+import com.example.tradingplatform.service.indicator.IndicatorService;
 import lombok.AllArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;

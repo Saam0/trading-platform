@@ -1,4 +1,4 @@
-package com.example.tradingplatform.service;
+package com.example.tradingplatform.service.backtest.strategy;
 
 import com.example.tradingplatform.dto.BacktestRequest;
 import com.example.tradingplatform.dto.BacktestResultDto;
@@ -6,6 +6,8 @@ import com.example.tradingplatform.dto.BacktestTradeDto;
 import com.example.tradingplatform.exception.InvalidRequestException;
 import com.example.tradingplatform.model.BacktestStrategyType;
 import com.example.tradingplatform.model.Candle;
+import com.example.tradingplatform.service.candle.CandleService;
+import com.example.tradingplatform.service.backtest.BacktestStrategy;
 import org.ta4j.core.BarSeries;
 import org.ta4j.core.BaseBar;
 import org.ta4j.core.BaseBarSeriesBuilder;

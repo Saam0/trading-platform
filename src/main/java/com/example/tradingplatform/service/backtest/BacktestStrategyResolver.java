@@ -1,4 +1,4 @@
-package com.example.tradingplatform.service;
+package com.example.tradingplatform.service.backtest;
 
 import com.example.tradingplatform.exception.InvalidRequestException;
 import com.example.tradingplatform.model.BacktestStrategyType;

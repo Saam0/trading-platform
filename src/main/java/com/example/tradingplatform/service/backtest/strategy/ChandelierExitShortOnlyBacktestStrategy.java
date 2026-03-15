@@ -1,10 +1,11 @@
-package com.example.tradingplatform.service;
+package com.example.tradingplatform.service.backtest.strategy;
 
 import com.example.tradingplatform.dto.BacktestRequest;
 import com.example.tradingplatform.dto.BacktestResultDto;
 import com.example.tradingplatform.dto.BacktestTradeDto;
 import com.example.tradingplatform.model.BacktestStrategyType;
 import com.example.tradingplatform.model.Candle;
+import com.example.tradingplatform.service.candle.CandleService;
 import org.springframework.stereotype.Service;
 import org.ta4j.core.num.Num;
 
@@ -12,15 +13,15 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Service
-public class ChandelierExitLongOnlyBacktestStrategy extends AbstractChandelierExitBacktestStrategy {
+public class ChandelierExitShortOnlyBacktestStrategy extends AbstractChandelierExitBacktestStrategy {
 
-    public ChandelierExitLongOnlyBacktestStrategy(CandleService candleService) {
+    public ChandelierExitShortOnlyBacktestStrategy(CandleService candleService) {
         super(candleService);
     }
 
     @Override
     public BacktestStrategyType getType() {
-        return BacktestStrategyType.CE_LONG_ONLY;
+        return BacktestStrategyType.CE_SHORT_ONLY;
     }
 
     @Override
@@ -80,23 +81,23 @@ public class ChandelierExitLongOnlyBacktestStrategy extends AbstractChandelierEx
             boolean buySignal = previousDirection == -1 && currentDirection == 1;
             boolean sellSignal = previousDirection == 1 && currentDirection == -1;
 
-            if (buySignal && !inPosition) {
+            if (sellSignal && !inPosition) {
                 inPosition = true;
                 entryIndex = i;
                 entryTime = candles.get(i).getTime();
                 entryPrice = currentClose;
             }
 
-            if (sellSignal && inPosition) {
+            if (buySignal && inPosition) {
                 trades.add(buildTrade(
-                        "LONG",
+                        "SHORT",
                         entryTime,
                         entryPrice,
                         candles.get(i).getTime(),
                         currentClose,
                         entryIndex,
                         i,
-                        "SELL_SIGNAL"
+                        "BUY_SIGNAL"
                 ));
 
                 inPosition = false;
@@ -114,7 +115,7 @@ public class ChandelierExitLongOnlyBacktestStrategy extends AbstractChandelierEx
             int lastIndex = candles.size() - 1;
 
             trades.add(buildTrade(
-                    "LONG",
+                    "SHORT",
                     entryTime,
                     entryPrice,
                     candles.get(lastIndex).getTime(),
@@ -126,8 +127,8 @@ public class ChandelierExitLongOnlyBacktestStrategy extends AbstractChandelierEx
         }
 
         return buildResult(
-                "Chandelier Exit Long Only",
-                BacktestStrategyType.CE_LONG_ONLY,
+                "Chandelier Exit Short Only",
+                BacktestStrategyType.CE_SHORT_ONLY,
                 request,
                 candles,
                 trades

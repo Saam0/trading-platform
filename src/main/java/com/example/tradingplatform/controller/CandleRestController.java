@@ -2,7 +2,7 @@ package com.example.tradingplatform.controller;
 
 import com.example.tradingplatform.dto.CandleQuery;
 import com.example.tradingplatform.model.Candle;
-import com.example.tradingplatform.service.CandleService;
+import com.example.tradingplatform.service.candle.CandleService;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import org.springframework.validation.annotation.Validated;

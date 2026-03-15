@@ -1,4 +1,4 @@
-package com.example.tradingplatform.service;
+package com.example.tradingplatform.service.indicator;
 
 import com.example.tradingplatform.dto.ChandelierExitPoint;
 import com.example.tradingplatform.dto.SmaPoint;

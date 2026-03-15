@@ -1,18 +1,17 @@
-package com.example.tradingplatform.service;
+package com.example.tradingplatform.service.indicator;
 
 import com.example.tradingplatform.dto.ChandelierExitPoint;
 import com.example.tradingplatform.dto.SmaPoint;
 import com.example.tradingplatform.model.Candle;
+import com.example.tradingplatform.service.candle.CandleService;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.ta4j.core.BarSeries;
 import org.ta4j.core.BaseBar;
-import org.ta4j.core.BaseBarSeries;
 import org.ta4j.core.BaseBarSeriesBuilder;
 import org.ta4j.core.indicators.averages.EMAIndicator;
 import org.ta4j.core.indicators.averages.SMAIndicator;
 import org.ta4j.core.indicators.helpers.ClosePriceIndicator;
-import org.ta4j.core.num.DecimalNum;
 import org.ta4j.core.num.Num;
 
 import java.time.Duration;
@@ -24,7 +23,7 @@ import java.util.List;
 
 @Service
 @AllArgsConstructor
-public class Ta4jIndicatorService implements  IndicatorService {
+public class Ta4jIndicatorService implements IndicatorService {
 
     private final CandleService candleService;
 

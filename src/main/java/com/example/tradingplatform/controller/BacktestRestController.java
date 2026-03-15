@@ -2,7 +2,7 @@ package com.example.tradingplatform.controller;
 
 import com.example.tradingplatform.dto.BacktestRequest;
 import com.example.tradingplatform.dto.BacktestResultDto;
-import com.example.tradingplatform.service.BacktestService;
+import com.example.tradingplatform.service.backtest.BacktestService;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import org.springframework.web.bind.annotation.PostMapping;
