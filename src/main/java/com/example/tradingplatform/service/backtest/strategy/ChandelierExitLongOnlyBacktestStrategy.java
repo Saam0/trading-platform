@@ -5,7 +5,7 @@ import com.example.tradingplatform.dto.BacktestResultDto;
 import com.example.tradingplatform.dto.BacktestTradeDto;
 import com.example.tradingplatform.model.BacktestStrategyType;
 import com.example.tradingplatform.model.Candle;
-import com.example.tradingplatform.service.backtest.risk.BacktestPositionSizer;
+import com.example.tradingplatform.service.backtest.risk.BacktestPositionSizerResolver;
 import com.example.tradingplatform.service.candle.CandleService;
 import org.springframework.stereotype.Service;
 import org.ta4j.core.num.Num;
@@ -18,9 +18,9 @@ public class ChandelierExitLongOnlyBacktestStrategy extends AbstractChandelierEx
 
     public ChandelierExitLongOnlyBacktestStrategy(
             CandleService candleService,
-            BacktestPositionSizer positionSizer
+            BacktestPositionSizerResolver positionSizerResolver
     ) {
-        super(candleService, positionSizer);
+        super(candleService, positionSizerResolver);
     }
 
     @Override

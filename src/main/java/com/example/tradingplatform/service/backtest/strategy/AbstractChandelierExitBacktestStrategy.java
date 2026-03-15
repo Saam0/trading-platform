@@ -8,6 +8,7 @@ import com.example.tradingplatform.model.BacktestStrategyType;
 import com.example.tradingplatform.model.Candle;
 import com.example.tradingplatform.service.backtest.BacktestStrategy;
 import com.example.tradingplatform.service.backtest.risk.BacktestPositionSizer;
+import com.example.tradingplatform.service.backtest.risk.BacktestPositionSizerResolver;
 import com.example.tradingplatform.service.candle.CandleService;
 import org.ta4j.core.BarSeries;
 import org.ta4j.core.BaseBar;
@@ -31,14 +32,14 @@ import java.util.List;
 public abstract class AbstractChandelierExitBacktestStrategy implements BacktestStrategy {
 
     protected final CandleService candleService;
-    protected final BacktestPositionSizer positionSizer;
+    protected final BacktestPositionSizerResolver positionSizerResolver;
 
     protected AbstractChandelierExitBacktestStrategy(
             CandleService candleService,
-            BacktestPositionSizer positionSizer
+            BacktestPositionSizerResolver positionSizerResolver
     ) {
         this.candleService = candleService;
-        this.positionSizer = positionSizer;
+        this.positionSizerResolver = positionSizerResolver;
     }
 
     protected void validateRequest(BacktestRequest request) {
@@ -135,6 +136,8 @@ public abstract class AbstractChandelierExitBacktestStrategy implements Backtest
             double capitalBefore,
             BacktestRequest request
     ) {
+        BacktestPositionSizer positionSizer = positionSizerResolver.resolve(request.getRiskModelType());
+
         double rawPositionSize = positionSizer.calculatePositionSize(request, capitalBefore, entryPrice);
         double positionSize = Math.max(0.0, rawPositionSize);
         double quantity = entryPrice == 0.0 ? 0.0 : positionSize / entryPrice;

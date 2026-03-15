@@ -5,11 +5,11 @@ import com.example.tradingplatform.model.BacktestRiskModelType;
 import org.springframework.stereotype.Component;
 
 @Component
-public class FullCapitalPositionSizer implements BacktestPositionSizer {
+public class FixedNotionalPositionSizer implements BacktestPositionSizer {
 
     @Override
     public BacktestRiskModelType getType() {
-        return BacktestRiskModelType.FULL_CAPITAL;
+        return BacktestRiskModelType.FIXED_NOTIONAL;
     }
 
     @Override
@@ -19,6 +19,12 @@ public class FullCapitalPositionSizer implements BacktestPositionSizer {
             double entryPrice
     ) {
         double leverage = request.getLeverage() <= 0 ? 1.0 : request.getLeverage();
-        return capital * leverage;
+        double maxAllowedNotional = capital * leverage;
+
+        double requestedNotional = request.getFixedNotional() <= 0.0
+                ? maxAllowedNotional
+                : request.getFixedNotional();
+
+        return Math.min(requestedNotional, maxAllowedNotional);
     }
 }
