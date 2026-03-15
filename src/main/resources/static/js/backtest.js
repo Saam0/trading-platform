@@ -1,9 +1,17 @@
 document.addEventListener('DOMContentLoaded', function () {
+    const strategySelect = document.getElementById('btStrategySelect');
     const modeSelect = document.getElementById('btModeSelect');
     const limitInput = document.getElementById('btLimitInput');
     const fromInput = document.getElementById('btFromInput');
     const toInput = document.getElementById('btToInput');
+
+    const riskModelSelect = document.getElementById('btRiskModelSelect');
     const capitalInput = document.getElementById('btCapitalInput');
+    const leverageInput = document.getElementById('btLeverageInput');
+    const riskInput = document.getElementById('btRiskInput');
+    const fixedNotionalInput = document.getElementById('btFixedNotionalInput');
+    const feeInput = document.getElementById('btFeeInput');
+
     const lengthInput = document.getElementById('btLengthInput');
     const multiplierInput = document.getElementById('btMultiplierInput');
     const useCloseInput = document.getElementById('btUseCloseInput');
@@ -28,17 +36,24 @@ document.addEventListener('DOMContentLoaded', function () {
     const initialCapitalLabel = document.getElementById('btInitialCapital');
     const finalCapitalLabel = document.getElementById('btFinalCapital');
     const netProfitLabel = document.getElementById('btNetProfit');
+    const riskModelLabel = document.getElementById('btRiskModel');
+    const leverageFeeLabel = document.getElementById('btLeverageFee');
     const totalPnlPercentLabel = document.getElementById('btTotalPnlPercent');
 
     const tradesBody = document.getElementById('btTradesBody');
 
     function updateModeUi() {
-        const mode = modeSelect.value;
-        const isCountMode = mode === 'count';
-
+        const isCountMode = modeSelect.value === 'count';
         limitInput.disabled = !isCountMode;
         fromInput.disabled = isCountMode;
         toInput.disabled = isCountMode;
+    }
+
+    function updateRiskModelUi() {
+        const riskModel = riskModelSelect.value;
+
+        riskInput.disabled = riskModel !== 'RISK_PERCENT';
+        fixedNotionalInput.disabled = riskModel !== 'FIXED_NOTIONAL';
     }
 
     function showLoading() {
@@ -63,7 +78,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function clearTradesTable(message) {
         tradesBody.innerHTML =
-            '<tr><td colspan="10" class="text-center text-muted">' + message + '</td></tr>';
+            '<tr><td colspan="16" class="text-center text-muted">' + message + '</td></tr>';
     }
 
     function formatNumber(value) {
@@ -98,20 +113,22 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function buildRequestBody() {
-        const mode = modeSelect.value;
-        const ticker = document.getElementById('tickerSelect').value;
-        const interval = document.getElementById('intervalSelect').value;
-
         const requestBody = {
-            ticker: ticker,
-            interval: interval,
+            ticker: document.getElementById('tickerSelect').value,
+            interval: document.getElementById('intervalSelect').value,
+            strategyType: strategySelect.value,
+            riskModelType: riskModelSelect.value,
+            initialCapital: Number(capitalInput.value),
+            leverage: Number(leverageInput.value),
+            riskPercent: Number(riskInput.value),
+            fixedNotional: Number(fixedNotionalInput.value),
+            feePercent: Number(feeInput.value),
             length: Number(lengthInput.value),
             multiplier: Number(multiplierInput.value),
-            useClose: useCloseInput.checked,
-            initialCapital: Number(capitalInput.value)
+            useClose: useCloseInput.checked
         };
 
-        if (mode === 'count') {
+        if (modeSelect.value === 'count') {
             requestBody.limit = Number(limitInput.value);
             return requestBody;
         }
@@ -134,31 +151,56 @@ document.addEventListener('DOMContentLoaded', function () {
         return requestBody;
     }
 
+    function syncChartIndicatorControls(requestBody) {
+        const showCeToggle = document.getElementById('showCeToggle');
+        const ceLengthSelect = document.getElementById('ceLengthSelect');
+        const ceMultiplierInput = document.getElementById('ceMultiplierInput');
+        const ceUseCloseToggle = document.getElementById('ceUseCloseToggle');
+
+        if (showCeToggle) {
+            showCeToggle.checked = true;
+        }
+
+        if (ceLengthSelect) {
+            ceLengthSelect.value = String(requestBody.length);
+        }
+
+        if (ceMultiplierInput) {
+            ceMultiplierInput.value = String(requestBody.multiplier);
+        }
+
+        if (ceUseCloseToggle) {
+            ceUseCloseToggle.checked = requestBody.useClose;
+        }
+    }
+
     function toBacktestMarkers(trades) {
         const markers = [];
 
         (trades || []).forEach(function (trade) {
+            const isLong = trade.side === 'LONG';
+
             markers.push({
                 time: trade.entryTime,
-                position: 'belowBar',
-                color: '#1e88e5',
-                shape: 'arrowUp',
-                text: 'Entry'
+                position: isLong ? 'belowBar' : 'aboveBar',
+                color: isLong ? '#1e88e5' : '#8e24aa',
+                shape: isLong ? 'arrowUp' : 'arrowDown',
+                text: isLong ? 'Long Entry' : 'Short Entry'
             });
 
             markers.push({
                 time: trade.exitTime,
-                position: 'aboveBar',
-                color: '#f4511e',
-                shape: 'arrowDown',
-                text: 'Exit'
+                position: isLong ? 'aboveBar' : 'belowBar',
+                color: isLong ? '#f4511e' : '#43a047',
+                shape: isLong ? 'arrowDown' : 'arrowUp',
+                text: isLong ? 'Long Exit' : 'Short Exit'
             });
         });
 
         return markers;
     }
 
-    function renderSummary(result) {
+    function renderSummary(result, requestBody) {
         summaryEmpty.classList.add('d-none');
         summaryBlock.classList.remove('d-none');
 
@@ -174,10 +216,13 @@ document.addEventListener('DOMContentLoaded', function () {
             + ', useClose=' + formatValue(result.useClose);
         winsLabel.textContent = formatValue(result.winningTrades);
         lossesLabel.textContent = formatValue(result.losingTrades);
-        totalPnlLabel.textContent = formatNumber(result.totalPnl);
+        totalPnlLabel.textContent = formatMoney(result.totalPnl);
         initialCapitalLabel.textContent = formatMoney(result.initialCapital);
         finalCapitalLabel.textContent = formatMoney(result.finalCapital);
         netProfitLabel.textContent = formatMoney(result.netProfit);
+        riskModelLabel.textContent = formatValue(requestBody.riskModelType);
+        leverageFeeLabel.textContent =
+            formatValue(requestBody.leverage) + 'x / ' + formatPercent(requestBody.feePercent);
         totalPnlPercentLabel.textContent = formatPercent(result.totalPnlPercent);
 
         netProfitLabel.className =
@@ -213,11 +258,17 @@ document.addEventListener('DOMContentLoaded', function () {
             return ''
                 + '<tr>'
                 + '<td>' + (index + 1) + '</td>'
+                + '<td>' + formatValue(trade.side) + '</td>'
                 + '<td>' + formatValue(trade.entryTime) + '</td>'
                 + '<td>' + formatNumber(trade.entryPrice) + '</td>'
+                + '<td>' + formatNumber(trade.quantity) + '</td>'
+                + '<td>' + formatMoney(trade.positionSize) + '</td>'
+                + '<td>' + formatMoney(trade.fee) + '</td>'
+                + '<td>' + formatMoney(trade.capitalBefore) + '</td>'
+                + '<td>' + formatMoney(trade.capitalAfter) + '</td>'
                 + '<td>' + formatValue(trade.exitTime) + '</td>'
                 + '<td>' + formatNumber(trade.exitPrice) + '</td>'
-                + '<td class="' + pnlClass + '">' + formatNumber(trade.pnl) + '</td>'
+                + '<td class="' + pnlClass + '">' + formatMoney(trade.pnl) + '</td>'
                 + '<td class="' + pnlPercentClass + '">' + formatPercent(trade.pnlPercent) + '</td>'
                 + '<td>' + formatValue(trade.barsHeld) + '</td>'
                 + '<td>' + formatValue(trade.result) + '</td>'
@@ -237,6 +288,8 @@ document.addEventListener('DOMContentLoaded', function () {
             showError(error.message);
             return;
         }
+
+        syncChartIndicatorControls(requestBody);
 
         showLoading();
         hideError();
@@ -262,7 +315,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 return response.json();
             })
             .then(function (result) {
-                renderSummary(result);
+                renderSummary(result, requestBody);
                 renderTrades(result.trades);
 
                 const markers = toBacktestMarkers(result.trades);
@@ -271,19 +324,19 @@ document.addEventListener('DOMContentLoaded', function () {
                     return Promise.resolve();
                 }
 
-                if (modeSelect.value === 'range'
-                    && typeof window.tradingChartApi.loadBacktestRangeIntoChart === 'function') {
-                    return window.tradingChartApi.loadBacktestRangeIntoChart({
-                        from: requestBody.from,
-                        to: requestBody.to,
-                        limit: requestBody.limit
-                    }).then(function () {
-                        window.tradingChartApi.setBacktestMarkers(markers);
-                    });
-                }
+                const loadOptions = {
+                    from: requestBody.from,
+                    to: requestBody.to,
+                    limit: requestBody.limit
+                };
 
-                if (typeof window.tradingChartApi.setBacktestMarkers === 'function') {
-                    window.tradingChartApi.setBacktestMarkers(markers);
+                if (typeof window.tradingChartApi.loadBacktestRangeIntoChart === 'function') {
+                    return window.tradingChartApi.loadBacktestRangeIntoChart(loadOptions)
+                        .then(function () {
+                            if (typeof window.tradingChartApi.setBacktestMarkers === 'function') {
+                                window.tradingChartApi.setBacktestMarkers(markers);
+                            }
+                        });
                 }
 
                 return Promise.resolve();
@@ -299,8 +352,10 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     updateModeUi();
+    updateRiskModelUi();
     clearTradesTable('No backtest results yet.');
 
     modeSelect.addEventListener('change', updateModeUi);
+    riskModelSelect.addEventListener('change', updateRiskModelUi);
     runButton.addEventListener('click', runBacktest);
 });

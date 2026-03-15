@@ -189,6 +189,15 @@
                 <div class="card-body">
                     <div class="row g-3 align-items-end">
                         <div class="col-md-2">
+                            <label class="form-label" for="btStrategySelect">Strategy</label>
+                            <select class="form-select" id="btStrategySelect">
+                                <option value="CE_LONG_ONLY" selected>CE Long Only</option>
+                                <option value="CE_SHORT_ONLY">CE Short Only</option>
+                                <option value="CE_REVERSAL_RETRACE">CE Reversal Retrace</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-2">
                             <label class="form-label" for="btModeSelect">Mode</label>
                             <select class="form-select" id="btModeSelect">
                                 <option value="count" selected>Candle Count</option>
@@ -226,6 +235,15 @@
                         </div>
 
                         <div class="col-md-2">
+                            <label class="form-label" for="btRiskModelSelect">Risk Model</label>
+                            <select class="form-select" id="btRiskModelSelect">
+                                <option value="FULL_CAPITAL" selected>Full Capital</option>
+                                <option value="FIXED_NOTIONAL">Fixed Notional</option>
+                                <option value="RISK_PERCENT">Risk Percent</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-2">
                             <label class="form-label" for="btCapitalInput">Deposit</label>
                             <input
                                     type="number"
@@ -234,6 +252,52 @@
                                     min="0.01"
                                     step="0.01"
                                     value="1000">
+                        </div>
+
+                        <div class="col-md-2">
+                            <label class="form-label" for="btLeverageInput">Leverage</label>
+                            <input
+                                    type="number"
+                                    class="form-control"
+                                    id="btLeverageInput"
+                                    min="1"
+                                    step="0.1"
+                                    value="1.0">
+                        </div>
+
+                        <div class="col-md-2">
+                            <label class="form-label" for="btRiskInput">Risk %</label>
+                            <input
+                                    type="number"
+                                    class="form-control"
+                                    id="btRiskInput"
+                                    min="0.01"
+                                    step="0.01"
+                                    value="1.0"
+                                    disabled>
+                        </div>
+
+                        <div class="col-md-2">
+                            <label class="form-label" for="btFixedNotionalInput">Fixed Notional</label>
+                            <input
+                                    type="number"
+                                    class="form-control"
+                                    id="btFixedNotionalInput"
+                                    min="0.01"
+                                    step="0.01"
+                                    value="100"
+                                    disabled>
+                        </div>
+
+                        <div class="col-md-2">
+                            <label class="form-label" for="btFeeInput">Fee %</label>
+                            <input
+                                    type="number"
+                                    class="form-control"
+                                    id="btFeeInput"
+                                    min="0"
+                                    step="0.001"
+                                    value="0.04">
                         </div>
 
                         <div class="col-md-2">
@@ -396,6 +460,20 @@
 
                             <div class="col-md-3">
                                 <div class="border rounded p-3 bg-light h-100">
+                                    <div class="text-muted small">Risk Model</div>
+                                    <div class="fw-semibold" id="btRiskModel">-</div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-3">
+                                <div class="border rounded p-3 bg-light h-100">
+                                    <div class="text-muted small">Leverage / Fee</div>
+                                    <div class="fw-semibold" id="btLeverageFee">-</div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-3">
+                                <div class="border rounded p-3 bg-light h-100">
                                     <div class="text-muted small">Total PnL %</div>
                                     <div class="fw-semibold" id="btTotalPnlPercent">-</div>
                                 </div>
@@ -417,8 +495,14 @@
                             <thead>
                             <tr>
                                 <th>#</th>
+                                <th>Side</th>
                                 <th>Entry Time</th>
                                 <th>Entry Price</th>
+                                <th>Qty</th>
+                                <th>Position Size</th>
+                                <th>Fee</th>
+                                <th>Capital Before</th>
+                                <th>Capital After</th>
                                 <th>Exit Time</th>
                                 <th>Exit Price</th>
                                 <th>PnL</th>
@@ -430,7 +514,7 @@
                             </thead>
                             <tbody id="btTradesBody">
                             <tr>
-                                <td colspan="10" class="text-center text-muted">
+                                <td colspan="16" class="text-center text-muted">
                                     No backtest results yet.
                                 </td>
                             </tr>
@@ -441,10 +525,9 @@
             </div>
         </div>
     </div>
-
 </div>
 
 <script src="/js/chart.js?v=3"></script>
-<script src="/js/backtest.js?v=1"></script>
+<script src="/js/backtest.js?v=3"></script>
 </body>
 </html>
