@@ -1,5 +1,6 @@
 package com.example.tradingplatform.dto;
 
+import com.example.tradingplatform.model.BacktestStrategyType;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -24,6 +25,8 @@ public class BacktestRequest {
             message = "Interval must be one of: m1, m5, m15, h1, h4, d1"
     )
     private String interval = "d1";
+
+    private BacktestStrategyType strategyType = BacktestStrategyType.CE_LONG_ONLY;
 
     @Min(value = 20, message = "Limit must be at least 20")
     @Max(value = 1000, message = "Limit must be at most 1000")

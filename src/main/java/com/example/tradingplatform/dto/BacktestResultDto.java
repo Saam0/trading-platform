@@ -1,5 +1,6 @@
 package com.example.tradingplatform.dto;
 
+import com.example.tradingplatform.model.BacktestStrategyType;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -12,6 +13,8 @@ import java.util.List;
 public class BacktestResultDto {
 
     private String strategy;
+
+    private BacktestStrategyType strategyType;
 
     private String ticker;
 

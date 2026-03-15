@@ -8,6 +8,9 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class BacktestTradeDto {
+
+    private String side;
+
     private Object entryTime;
 
     private double entryPrice;

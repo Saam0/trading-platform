@@ -4,5 +4,7 @@ import com.example.tradingplatform.dto.BacktestRequest;
 import com.example.tradingplatform.dto.BacktestResultDto;
 
 public interface BacktestService {
-    BacktestResultDto runChandelierExitBacktest(BacktestRequest request);
+
+    BacktestResultDto runBacktest(BacktestRequest request);
+
 }
