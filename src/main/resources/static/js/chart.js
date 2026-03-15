@@ -1,5 +1,5 @@
 document.addEventListener('DOMContentLoaded', function () {
-    console.log('chart.js VERSION: historical-lazy-loading-v8-initial-90-stable');
+    console.log('chart.js VERSION: historical-lazy-loading-v8-initial-90-stable + backtest-range-integration-v2');
 
     const chartContainer = document.getElementById('chart');
     const tickerSelect = document.getElementById('tickerSelect');
@@ -92,6 +92,10 @@ document.addEventListener('DOMContentLoaded', function () {
     let suppressVisibleRangeHandler = false;
     let visibleRangeAnimationFrameId = null;
     let lastHistoryRequestTo = null;
+
+    let indicatorMarkers = [];
+    let externalMarkers = [];
+    let fixedRangeMode = false;
 
     function createPriceSeries() {
         if (typeof chart.addSeries === 'function' && LightweightCharts.CandlestickSeries) {
@@ -396,8 +400,23 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-    function clearMarkers() {
-        applyMarkers([]);
+    function renderMergedMarkers() {
+        applyMarkers(indicatorMarkers.concat(externalMarkers));
+    }
+
+    function setIndicatorMarkers(markers) {
+        indicatorMarkers = markers || [];
+        renderMergedMarkers();
+    }
+
+    function setExternalMarkers(markers) {
+        externalMarkers = markers || [];
+        renderMergedMarkers();
+    }
+
+    function clearExternalMarkers() {
+        externalMarkers = [];
+        renderMergedMarkers();
     }
 
     function updateInteractionOptions() {
@@ -479,13 +498,17 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    function buildCandlesUrl(limit, to) {
+    function buildCandlesUrl(limit, to, from) {
         let url = '/api/candles?ticker='
             + encodeURIComponent(tickerSelect.value)
             + '&interval='
             + encodeURIComponent(intervalSelect.value)
             + '&limit='
             + encodeURIComponent(limit);
+
+        if (from !== null && from !== undefined) {
+            url += '&from=' + encodeURIComponent(from);
+        }
 
         if (to !== null && to !== undefined) {
             url += '&to=' + encodeURIComponent(to);
@@ -566,9 +589,9 @@ document.addEventListener('DOMContentLoaded', function () {
             });
     }
 
-    function loadCandles(limit, to) {
+    function loadCandles(limit, to, from) {
         return fetchJson(
-            buildCandlesUrl(limit, to),
+            buildCandlesUrl(limit, to, from),
             'Failed to load candles'
         );
     }
@@ -624,10 +647,10 @@ document.addEventListener('DOMContentLoaded', function () {
 
         if (showCeToggle.checked) {
             renderCeSegments(ceData);
-            applyMarkers(toCeMarkers(ceData));
+            setIndicatorMarkers(toCeMarkers(ceData));
         } else {
             clearCeSegmentSeries();
-            clearMarkers();
+            setIndicatorMarkers([]);
         }
 
         if (resetView) {
@@ -661,6 +684,7 @@ document.addEventListener('DOMContentLoaded', function () {
         hasMoreHistory = true;
         lastHistoryRequestTo = null;
         suppressVisibleRangeHandler = false;
+
         if (visibleRangeAnimationFrameId !== null) {
             cancelAnimationFrame(visibleRangeAnimationFrameId);
             visibleRangeAnimationFrameId = null;
@@ -673,6 +697,8 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         isReloading = true;
+        fixedRangeMode = false;
+        clearExternalMarkers();
 
         const resetView = options && options.resetView === true;
         const viewState = resetView ? null : captureChartViewState();
@@ -682,7 +708,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         showLoading('Loading candles...');
 
-        const candlePromise = loadCandles(INITIAL_LIMIT, null);
+        const candlePromise = loadCandles(INITIAL_LIMIT, null, null);
         const indicatorPromises = buildIndicatorPromises(INITIAL_LIMIT, null);
 
         Promise.all([candlePromise].concat(indicatorPromises))
@@ -719,6 +745,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         isReloading = true;
+        fixedRangeMode = false;
 
         const resetView = options && options.resetView === true;
         const viewState = resetView ? null : captureChartViewState();
@@ -728,7 +755,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         const candlePromise = allCandles.length > 0
             ? Promise.resolve(allCandles)
-            : loadCandles(currentLimit, null);
+            : loadCandles(currentLimit, null, null);
 
         const indicatorPromises = buildIndicatorPromises(currentLimit, null);
 
@@ -758,6 +785,10 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function shouldLoadOlderHistory(logicalRange) {
         if (!logicalRange) {
+            return false;
+        }
+
+        if (fixedRangeMode) {
             return false;
         }
 
@@ -827,7 +858,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         const previousRange = chart.timeScale().getVisibleLogicalRange();
 
-        loadCandles(HISTORY_PAGE_SIZE, requestTo)
+        loadCandles(HISTORY_PAGE_SIZE, requestTo, null)
             .then(function (olderCandles) {
                 if (!olderCandles || olderCandles.length === 0) {
                     hasMoreHistory = false;
@@ -871,6 +902,55 @@ document.addEventListener('DOMContentLoaded', function () {
             })
             .finally(function () {
                 isLoadingOlder = false;
+            });
+    }
+
+    function loadBacktestRangeIntoChart(options) {
+        if (isReloading) {
+            return Promise.resolve();
+        }
+
+        isReloading = true;
+        fixedRangeMode = true;
+        hasMoreHistory = false;
+        lastHistoryRequestTo = null;
+        userInteractedWithChart = false;
+
+        const requestFrom = options && options.from !== undefined ? options.from : null;
+        const requestTo = options && options.to !== undefined ? options.to : null;
+        const requestLimit = options && options.limit ? options.limit : 1000;
+
+        showLoading('Loading backtest range...');
+
+        return loadCandles(requestLimit, requestTo, requestFrom)
+            .then(function (candleData) {
+                if (!candleData || candleData.length === 0) {
+                    throw new Error('No candles found for selected backtest range');
+                }
+
+                allCandles = candleData;
+
+                const indicatorPromises = buildIndicatorPromises(candleData.length, requestTo);
+
+                return Promise.all(indicatorPromises)
+                    .then(function (indicatorResults) {
+                        const smaData = indicatorResults[0];
+                        const emaData = indicatorResults[1];
+                        const ceData = indicatorResults[2];
+
+                        applyData(candleData, smaData, emaData, ceData, {
+                            resetView: true
+                        });
+                    });
+            })
+            .catch(function (error) {
+                console.error('Error loading backtest range:', error);
+                showError(error.message);
+                throw error;
+            })
+            .finally(function () {
+                isReloading = false;
+                hideLoading();
             });
     }
 
@@ -970,6 +1050,16 @@ document.addEventListener('DOMContentLoaded', function () {
         updateIndicatorLabels();
         reloadCurrentWindow({ resetView: false });
     });
+
+    window.tradingChartApi = {
+        loadBacktestRangeIntoChart: loadBacktestRangeIntoChart,
+        setBacktestMarkers: function (markers) {
+            setExternalMarkers(markers);
+        },
+        clearBacktestMarkers: function () {
+            clearExternalMarkers();
+        }
+    };
 
     window.addEventListener('resize', function () {
         chart.applyOptions({

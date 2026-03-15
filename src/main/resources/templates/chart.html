@@ -64,21 +64,21 @@
             </div>
 
             <div class="form-check mt-1">
-                <input class="form-check-input" type="checkbox" id="showVolumeToggle" >
+                <input class="form-check-input" type="checkbox" id="showVolumeToggle">
                 <label class="form-check-label" for="showVolumeToggle">
                     Show volume
                 </label>
             </div>
 
             <div class="form-check mt-1">
-                <input class="form-check-input" type="checkbox" id="showSmaToggle" >
+                <input class="form-check-input" type="checkbox" id="showSmaToggle">
                 <label class="form-check-label" for="showSmaToggle" id="showSmaLabel">
                     Show SMA(5)
                 </label>
             </div>
 
             <div class="form-check mt-1">
-                <input class="form-check-input" type="checkbox" id="showEmaToggle" >
+                <input class="form-check-input" type="checkbox" id="showEmaToggle">
                 <label class="form-check-label" for="showEmaToggle" id="showEmaLabel">
                     Show EMA(9)
                 </label>
@@ -179,134 +179,272 @@
             </div>
         </div>
     </div>
-    <div class="row mt-4 g-3">
 
+    <div class="row mt-4 g-3">
         <div class="col-12">
             <div class="card shadow-sm">
                 <div class="card-header">
                     <strong>Chandelier Exit Backtest</strong>
                 </div>
-
                 <div class="card-body">
-
                     <div class="row g-3 align-items-end">
-
                         <div class="col-md-2">
-                            <label class="form-label">Candle Count</label>
-                            <input type="number"
-                                   class="form-control"
-                                   id="btLimit"
-                                   value="300"
-                                   min="20"
-                                   max="2000">
-                        </div>
-
-                        <div class="col-md-3">
-                            <label class="form-label">From</label>
-                            <input type="datetime-local"
-                                   class="form-control"
-                                   id="btFrom">
-                        </div>
-
-                        <div class="col-md-3">
-                            <label class="form-label">To</label>
-                            <input type="datetime-local"
-                                   class="form-control"
-                                   id="btTo">
+                            <label class="form-label" for="btModeSelect">Mode</label>
+                            <select class="form-select" id="btModeSelect">
+                                <option value="count" selected>Candle Count</option>
+                                <option value="range">Range (From / To)</option>
+                            </select>
                         </div>
 
                         <div class="col-md-2">
-                            <label class="form-label">Deposit</label>
-                            <input type="number"
-                                   class="form-control"
-                                   id="btCapital"
-                                   value="1000">
+                            <label class="form-label" for="btLimitInput">Candle Count</label>
+                            <input
+                                    type="number"
+                                    class="form-control"
+                                    id="btLimitInput"
+                                    min="20"
+                                    max="1000"
+                                    value="300">
                         </div>
 
-                        <div class="col-md-1">
-                            <label class="form-label">Length</label>
-                            <input type="number"
-                                   class="form-control"
-                                   id="btLength"
-                                   value="22">
+                        <div class="col-md-3">
+                            <label class="form-label" for="btFromInput">From</label>
+                            <input
+                                    type="datetime-local"
+                                    class="form-control"
+                                    id="btFromInput"
+                                    disabled>
                         </div>
 
-                        <div class="col-md-1">
-                            <label class="form-label">Mult</label>
-                            <input type="number"
-                                   class="form-control"
-                                   id="btMult"
-                                   step="0.1"
-                                   value="3.0">
+                        <div class="col-md-3">
+                            <label class="form-label" for="btToInput">To</label>
+                            <input
+                                    type="datetime-local"
+                                    class="form-control"
+                                    id="btToInput"
+                                    disabled>
                         </div>
 
-                        <div class="col-md-1 d-grid">
-                            <button id="runBacktestBtn"
-                                    class="btn btn-primary">
-                                Run
+                        <div class="col-md-2">
+                            <label class="form-label" for="btCapitalInput">Deposit</label>
+                            <input
+                                    type="number"
+                                    class="form-control"
+                                    id="btCapitalInput"
+                                    min="0.01"
+                                    step="0.01"
+                                    value="1000">
+                        </div>
+
+                        <div class="col-md-2">
+                            <label class="form-label" for="btLengthInput">CE Length</label>
+                            <input
+                                    type="number"
+                                    class="form-control"
+                                    id="btLengthInput"
+                                    min="1"
+                                    max="500"
+                                    value="22">
+                        </div>
+
+                        <div class="col-md-2">
+                            <label class="form-label" for="btMultiplierInput">CE Multiplier</label>
+                            <input
+                                    type="number"
+                                    class="form-control"
+                                    id="btMultiplierInput"
+                                    min="0.1"
+                                    step="0.1"
+                                    value="3.0">
+                        </div>
+
+                        <div class="col-md-2">
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" id="btUseCloseInput" checked>
+                                <label class="form-check-label" for="btUseCloseInput">
+                                    Use Close
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="col-md-2 d-grid">
+                            <button class="btn btn-primary" id="runBacktestBtn" type="button">
+                                Run Backtest
                             </button>
                         </div>
-
                     </div>
 
+                    <div class="form-text mt-2">
+                        Range mode-ում ներկայում օգտագործվում է մինչև 1000 candle։
+                    </div>
+
+                    <div class="mt-3">
+                        <div id="btLoadingMessage" class="alert alert-info d-none mb-2" role="alert">
+                            Running backtest...
+                        </div>
+
+                        <div id="btErrorMessage" class="alert alert-danger d-none mb-0" role="alert">
+                            Backtest failed.
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
 
-
         <div class="col-12">
-
             <div class="card shadow-sm">
-
                 <div class="card-header">
                     <strong>Backtest Summary</strong>
                 </div>
-
                 <div class="card-body">
-
-                    <div id="btSummary" class="row g-3">
-
-                        <div class="col-md-3">
-                            <div class="border p-3 rounded">
-                                Initial Capital:
-                                <strong id="btInitial">-</strong>
-                            </div>
-                        </div>
-
-                        <div class="col-md-3">
-                            <div class="border p-3 rounded">
-                                Final Capital:
-                                <strong id="btFinal">-</strong>
-                            </div>
-                        </div>
-
-                        <div class="col-md-3">
-                            <div class="border p-3 rounded">
-                                Net Profit:
-                                <strong id="btProfit">-</strong>
-                            </div>
-                        </div>
-
-                        <div class="col-md-3">
-                            <div class="border p-3 rounded">
-                                Win Rate:
-                                <strong id="btWinRate">-</strong>
-                            </div>
-                        </div>
-
+                    <div id="btSummaryEmpty" class="text-muted">
+                        Run a backtest to see results.
                     </div>
 
+                    <div id="btSummaryBlock" class="d-none">
+                        <div class="row g-3">
+                            <div class="col-md-3">
+                                <div class="border rounded p-3 bg-light h-100">
+                                    <div class="text-muted small">Strategy</div>
+                                    <div class="fw-semibold" id="btStrategy">-</div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-3">
+                                <div class="border rounded p-3 bg-light h-100">
+                                    <div class="text-muted small">Range</div>
+                                    <div class="fw-semibold" id="btRange">-</div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-2">
+                                <div class="border rounded p-3 bg-light h-100">
+                                    <div class="text-muted small">Trades</div>
+                                    <div class="fw-semibold" id="btTrades">-</div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-2">
+                                <div class="border rounded p-3 bg-light h-100">
+                                    <div class="text-muted small">Win Rate</div>
+                                    <div class="fw-semibold" id="btWinRate">-</div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-2">
+                                <div class="border rounded p-3 bg-light h-100">
+                                    <div class="text-muted small">Net Profit %</div>
+                                    <div class="fw-semibold" id="btNetProfitPercent">-</div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-3">
+                                <div class="border rounded p-3 bg-light h-100">
+                                    <div class="text-muted small">Ticker / Interval</div>
+                                    <div class="fw-semibold" id="btTickerInterval">-</div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-3">
+                                <div class="border rounded p-3 bg-light h-100">
+                                    <div class="text-muted small">Params</div>
+                                    <div class="fw-semibold" id="btParams">-</div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-2">
+                                <div class="border rounded p-3 bg-light h-100">
+                                    <div class="text-muted small">Wins</div>
+                                    <div class="fw-semibold" id="btWins">-</div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-2">
+                                <div class="border rounded p-3 bg-light h-100">
+                                    <div class="text-muted small">Losses</div>
+                                    <div class="fw-semibold" id="btLosses">-</div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-2">
+                                <div class="border rounded p-3 bg-light h-100">
+                                    <div class="text-muted small">Total PnL</div>
+                                    <div class="fw-semibold" id="btTotalPnl">-</div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-3">
+                                <div class="border rounded p-3 bg-light h-100">
+                                    <div class="text-muted small">Initial Capital</div>
+                                    <div class="fw-semibold" id="btInitialCapital">-</div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-3">
+                                <div class="border rounded p-3 bg-light h-100">
+                                    <div class="text-muted small">Final Capital</div>
+                                    <div class="fw-semibold" id="btFinalCapital">-</div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-3">
+                                <div class="border rounded p-3 bg-light h-100">
+                                    <div class="text-muted small">Net Profit</div>
+                                    <div class="fw-semibold" id="btNetProfit">-</div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-3">
+                                <div class="border rounded p-3 bg-light h-100">
+                                    <div class="text-muted small">Total PnL %</div>
+                                    <div class="fw-semibold" id="btTotalPnlPercent">-</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-
             </div>
-
         </div>
 
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header">
+                    <strong>Backtest Trades</strong>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-striped align-middle mb-0">
+                            <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Entry Time</th>
+                                <th>Entry Price</th>
+                                <th>Exit Time</th>
+                                <th>Exit Price</th>
+                                <th>PnL</th>
+                                <th>PnL %</th>
+                                <th>Bars Held</th>
+                                <th>Result</th>
+                                <th>Exit Reason</th>
+                            </tr>
+                            </thead>
+                            <tbody id="btTradesBody">
+                            <tr>
+                                <td colspan="10" class="text-center text-muted">
+                                    No backtest results yet.
+                                </td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
 </div>
 
-<script src="/js/chart.js?v=2"></script>
+<script src="/js/chart.js?v=3"></script>
 <script src="/js/backtest.js?v=1"></script>
 </body>
 </html>
