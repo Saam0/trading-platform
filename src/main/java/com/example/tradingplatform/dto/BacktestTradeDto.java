@@ -15,6 +15,16 @@ public class BacktestTradeDto {
 
     private double entryPrice;
 
+    private double quantity;
+
+    private double positionSize;
+
+    private double fee;
+
+    private double capitalBefore;
+
+    private double capitalAfter;
+
     private Object exitTime;
 
     private double exitPrice;

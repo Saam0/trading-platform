@@ -6,8 +6,9 @@ import com.example.tradingplatform.dto.BacktestTradeDto;
 import com.example.tradingplatform.exception.InvalidRequestException;
 import com.example.tradingplatform.model.BacktestStrategyType;
 import com.example.tradingplatform.model.Candle;
-import com.example.tradingplatform.service.candle.CandleService;
 import com.example.tradingplatform.service.backtest.BacktestStrategy;
+import com.example.tradingplatform.service.backtest.risk.BacktestPositionSizer;
+import com.example.tradingplatform.service.candle.CandleService;
 import org.ta4j.core.BarSeries;
 import org.ta4j.core.BaseBar;
 import org.ta4j.core.BaseBarSeriesBuilder;
@@ -30,9 +31,14 @@ import java.util.List;
 public abstract class AbstractChandelierExitBacktestStrategy implements BacktestStrategy {
 
     protected final CandleService candleService;
+    protected final BacktestPositionSizer positionSizer;
 
-    protected AbstractChandelierExitBacktestStrategy(CandleService candleService) {
+    protected AbstractChandelierExitBacktestStrategy(
+            CandleService candleService,
+            BacktestPositionSizer positionSizer
+    ) {
         this.candleService = candleService;
+        this.positionSizer = positionSizer;
     }
 
     protected void validateRequest(BacktestRequest request) {
@@ -117,7 +123,7 @@ public abstract class AbstractChandelierExitBacktestStrategy implements Backtest
         return new CeContext(series, closePriceIndicator, atrIndicator, highestIndicator, lowestIndicator);
     }
 
-    protected BacktestTradeDto buildTrade(
+    protected TradeExecution buildTrade(
             String side,
             Object entryTime,
             double entryPrice,
@@ -125,36 +131,57 @@ public abstract class AbstractChandelierExitBacktestStrategy implements Backtest
             double exitPrice,
             int entryIndex,
             int exitIndex,
-            String exitReason
+            String exitReason,
+            double capitalBefore,
+            BacktestRequest request
     ) {
-        double pnl = "LONG".equals(side)
-                ? exitPrice - entryPrice
-                : entryPrice - exitPrice;
+        double rawPositionSize = positionSizer.calculatePositionSize(request, capitalBefore, entryPrice);
+        double positionSize = Math.max(0.0, rawPositionSize);
+        double quantity = entryPrice == 0.0 ? 0.0 : positionSize / entryPrice;
 
-        double pnlPercent = entryPrice == 0.0 ? 0.0 : (pnl / entryPrice) * 100.0;
+        double grossPnl = "LONG".equals(side)
+                ? (exitPrice - entryPrice) * quantity
+                : (entryPrice - exitPrice) * quantity;
+
+        double feeRate = request.getFeePercent() / 100.0;
+        double entryFee = positionSize * feeRate;
+        double exitFee = positionSize * feeRate;
+        double totalFee = entryFee + exitFee;
+
+        double netPnl = grossPnl - totalFee;
+        double capitalAfter = capitalBefore + netPnl;
+
+        double pnlPercent = positionSize == 0.0 ? 0.0 : (netPnl / positionSize) * 100.0;
         int barsHeld = Math.max(0, exitIndex - entryIndex);
 
         String result;
-        if (pnl > 0) {
+        if (netPnl > 0) {
             result = "WIN";
-        } else if (pnl < 0) {
+        } else if (netPnl < 0) {
             result = "LOSS";
         } else {
             result = "BREAKEVEN";
         }
 
-        return new BacktestTradeDto(
+        BacktestTradeDto trade = new BacktestTradeDto(
                 side,
                 entryTime,
                 round(entryPrice),
+                round(quantity),
+                round(positionSize),
+                round(totalFee),
+                round(capitalBefore),
+                round(capitalAfter),
                 exitTime,
                 round(exitPrice),
-                round(pnl),
+                round(netPnl),
                 round(pnlPercent),
                 barsHeld,
                 result,
                 exitReason
         );
+
+        return new TradeExecution(trade, capitalAfter);
     }
 
     protected BacktestResultDto buildResult(
@@ -167,9 +194,11 @@ public abstract class AbstractChandelierExitBacktestStrategy implements Backtest
         int winningTrades = 0;
         int losingTrades = 0;
         double totalPnl = 0.0;
+        double finalCapital = request.getInitialCapital();
 
         for (BacktestTradeDto trade : trades) {
             totalPnl += trade.getPnl();
+            finalCapital = trade.getCapitalAfter();
 
             if (trade.getPnl() > 0) {
                 winningTrades++;
@@ -180,8 +209,7 @@ public abstract class AbstractChandelierExitBacktestStrategy implements Backtest
 
         int totalTrades = trades.size();
         double winRate = totalTrades == 0 ? 0.0 : (winningTrades * 100.0) / totalTrades;
-        double finalCapital = request.getInitialCapital() + totalPnl;
-        double netProfit = totalPnl;
+        double netProfit = finalCapital - request.getInitialCapital();
         double netProfitPercent = request.getInitialCapital() == 0.0
                 ? 0.0
                 : (netProfit / request.getInitialCapital()) * 100.0;
@@ -292,6 +320,24 @@ public abstract class AbstractChandelierExitBacktestStrategy implements Backtest
 
         public LowestValueIndicator getLowestIndicator() {
             return lowestIndicator;
+        }
+    }
+
+    protected static class TradeExecution {
+        private final BacktestTradeDto trade;
+        private final double capitalAfter;
+
+        private TradeExecution(BacktestTradeDto trade, double capitalAfter) {
+            this.trade = trade;
+            this.capitalAfter = capitalAfter;
+        }
+
+        public BacktestTradeDto getTrade() {
+            return trade;
+        }
+
+        public double getCapitalAfter() {
+            return capitalAfter;
         }
     }
 }

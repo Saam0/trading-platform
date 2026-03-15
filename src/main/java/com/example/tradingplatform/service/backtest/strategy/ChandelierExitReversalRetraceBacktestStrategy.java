@@ -5,6 +5,7 @@ import com.example.tradingplatform.dto.BacktestResultDto;
 import com.example.tradingplatform.dto.BacktestTradeDto;
 import com.example.tradingplatform.model.BacktestStrategyType;
 import com.example.tradingplatform.model.Candle;
+import com.example.tradingplatform.service.backtest.risk.BacktestPositionSizer;
 import com.example.tradingplatform.service.candle.CandleService;
 import org.springframework.stereotype.Service;
 import org.ta4j.core.num.Num;
@@ -18,8 +19,11 @@ public class ChandelierExitReversalRetraceBacktestStrategy extends AbstractChand
     private static final String SIDE_LONG = "LONG";
     private static final String SIDE_SHORT = "SHORT";
 
-    public ChandelierExitReversalRetraceBacktestStrategy(CandleService candleService) {
-        super(candleService);
+    public ChandelierExitReversalRetraceBacktestStrategy(
+            CandleService candleService,
+            BacktestPositionSizer positionSizer
+    ) {
+        super(candleService, positionSizer);
     }
 
     @Override
@@ -43,6 +47,7 @@ public class ChandelierExitReversalRetraceBacktestStrategy extends AbstractChand
 
         OpenPosition openPosition = null;
         PendingEntry pendingEntry = null;
+        double capital = request.getInitialCapital();
 
         for (int i = request.getLength() - 1; i < context.getSeries().getBarCount(); i++) {
             Num rawLongStop = context.getHighestIndicator().getValue(i)
@@ -84,7 +89,7 @@ public class ChandelierExitReversalRetraceBacktestStrategy extends AbstractChand
 
             if (openPosition != null) {
                 if (SIDE_LONG.equals(openPosition.side) && sellSignal) {
-                    trades.add(buildTrade(
+                    TradeExecution execution = buildTrade(
                             SIDE_LONG,
                             openPosition.entryTime,
                             openPosition.entryPrice,
@@ -92,9 +97,13 @@ public class ChandelierExitReversalRetraceBacktestStrategy extends AbstractChand
                             currentClose,
                             openPosition.entryIndex,
                             i,
-                            "SELL_SIGNAL"
-                    ));
+                            "SELL_SIGNAL",
+                            capital,
+                            request
+                    );
 
+                    trades.add(execution.getTrade());
+                    capital = execution.getCapitalAfter();
                     openPosition = null;
 
                     if (previousLongStop != null) {
@@ -105,7 +114,7 @@ public class ChandelierExitReversalRetraceBacktestStrategy extends AbstractChand
                         );
                     }
                 } else if (SIDE_SHORT.equals(openPosition.side) && buySignal) {
-                    trades.add(buildTrade(
+                    TradeExecution execution = buildTrade(
                             SIDE_SHORT,
                             openPosition.entryTime,
                             openPosition.entryPrice,
@@ -113,9 +122,13 @@ public class ChandelierExitReversalRetraceBacktestStrategy extends AbstractChand
                             currentClose,
                             openPosition.entryIndex,
                             i,
-                            "BUY_SIGNAL"
-                    ));
+                            "BUY_SIGNAL",
+                            capital,
+                            request
+                    );
 
+                    trades.add(execution.getTrade());
+                    capital = execution.getCapitalAfter();
                     openPosition = null;
 
                     if (previousShortStop != null) {
@@ -174,7 +187,7 @@ public class ChandelierExitReversalRetraceBacktestStrategy extends AbstractChand
         if (openPosition != null) {
             int lastIndex = candles.size() - 1;
 
-            trades.add(buildTrade(
+            TradeExecution execution = buildTrade(
                     openPosition.side,
                     openPosition.entryTime,
                     openPosition.entryPrice,
@@ -182,8 +195,12 @@ public class ChandelierExitReversalRetraceBacktestStrategy extends AbstractChand
                     candles.get(lastIndex).getClose(),
                     openPosition.entryIndex,
                     lastIndex,
-                    "FORCED_LAST_CANDLE_EXIT"
-            ));
+                    "FORCED_LAST_CANDLE_EXIT",
+                    capital,
+                    request
+            );
+
+            trades.add(execution.getTrade());
         }
 
         return buildResult(
