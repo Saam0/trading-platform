@@ -1,5 +1,6 @@
 package com.example.tradingplatform.dto;
 
+import com.example.tradingplatform.model.BacktestExitModelType;
 import com.example.tradingplatform.model.BacktestStrategyType;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -15,6 +16,10 @@ public class BacktestResultDto {
     private String strategy;
 
     private BacktestStrategyType strategyType;
+
+    private BacktestExitModelType exitModelType;
+
+    private double riskRewardRatio;
 
     private String ticker;
 

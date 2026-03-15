@@ -46,9 +46,13 @@ public class ChandelierExitShortOnlyBacktestStrategy extends AbstractChandelierE
         int entryIndex = -1;
         Object entryTime = null;
         double entryPrice = 0.0;
+        double entryStopPrice = 0.0;
+        double entryTargetPrice = 0.0;
         double capital = request.getInitialCapital();
 
         for (int i = request.getLength() - 1; i < context.getSeries().getBarCount(); i++) {
+            Candle candle = candles.get(i);
+
             Num rawLongStop = context.getHighestIndicator().getValue(i)
                     .minus(context.getAtrIndicator().getValue(i).multipliedBy(multiplierNum));
 
@@ -89,16 +93,47 @@ public class ChandelierExitShortOnlyBacktestStrategy extends AbstractChandelierE
             if (sellSignal && !inPosition) {
                 inPosition = true;
                 entryIndex = i;
-                entryTime = candles.get(i).getTime();
+                entryTime = candle.getTime();
                 entryPrice = currentClose;
+                entryStopPrice = shortStop.doubleValue();
+                entryTargetPrice = isFixedRrTpEnabled(request)
+                        ? calculateShortTarget(entryPrice, entryStopPrice, request.getRiskRewardRatio())
+                        : 0.0;
             }
 
-            if (buySignal && inPosition) {
+            if (inPosition && i > entryIndex && isFixedRrTpEnabled(request) && isShortTargetHit(candle, entryTargetPrice)) {
                 TradeExecution execution = buildTrade(
                         "SHORT",
                         entryTime,
                         entryPrice,
-                        candles.get(i).getTime(),
+                        entryStopPrice,
+                        entryTargetPrice,
+                        candle.getTime(),
+                        entryTargetPrice,
+                        entryIndex,
+                        i,
+                        "TAKE_PROFIT_RR",
+                        capital,
+                        request
+                );
+
+                trades.add(execution.getTrade());
+                capital = execution.getCapitalAfter();
+
+                inPosition = false;
+                entryIndex = -1;
+                entryTime = null;
+                entryPrice = 0.0;
+                entryStopPrice = 0.0;
+                entryTargetPrice = 0.0;
+            } else if (buySignal && inPosition) {
+                TradeExecution execution = buildTrade(
+                        "SHORT",
+                        entryTime,
+                        entryPrice,
+                        entryStopPrice,
+                        entryTargetPrice,
+                        candle.getTime(),
                         currentClose,
                         entryIndex,
                         i,
@@ -114,6 +149,8 @@ public class ChandelierExitShortOnlyBacktestStrategy extends AbstractChandelierE
                 entryIndex = -1;
                 entryTime = null;
                 entryPrice = 0.0;
+                entryStopPrice = 0.0;
+                entryTargetPrice = 0.0;
             }
 
             previousLongStop = longStop;
@@ -123,13 +160,16 @@ public class ChandelierExitShortOnlyBacktestStrategy extends AbstractChandelierE
 
         if (inPosition) {
             int lastIndex = candles.size() - 1;
+            Candle lastCandle = candles.get(lastIndex);
 
             TradeExecution execution = buildTrade(
                     "SHORT",
                     entryTime,
                     entryPrice,
-                    candles.get(lastIndex).getTime(),
-                    candles.get(lastIndex).getClose(),
+                    entryStopPrice,
+                    entryTargetPrice,
+                    lastCandle.getTime(),
+                    lastCandle.getClose(),
                     entryIndex,
                     lastIndex,
                     "FORCED_LAST_CANDLE_EXIT",

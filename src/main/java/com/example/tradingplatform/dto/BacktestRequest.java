@@ -1,5 +1,6 @@
 package com.example.tradingplatform.dto;
 
+import com.example.tradingplatform.model.BacktestExitModelType;
 import com.example.tradingplatform.model.BacktestRiskModelType;
 import com.example.tradingplatform.model.BacktestStrategyType;
 import jakarta.validation.constraints.DecimalMin;
@@ -29,6 +30,11 @@ public class BacktestRequest {
 
     private BacktestStrategyType strategyType = BacktestStrategyType.CE_LONG_ONLY;
 
+    private BacktestExitModelType exitModelType = BacktestExitModelType.SIGNAL_ONLY;
+
+    @DecimalMin(value = "0.1", message = "Risk reward ratio must be at least 0.1")
+    private double riskRewardRatio = 3.0;
+
     @Min(value = 20, message = "Limit must be at least 20")
     @Max(value = 1000, message = "Limit must be at most 1000")
     private int limit = 300;
@@ -51,14 +57,17 @@ public class BacktestRequest {
     @DecimalMin(value = "0.01", message = "Initial capital must be greater than 0")
     private double initialCapital = 1000.0;
 
-    private BacktestRiskModelType riskModelType;
+    private BacktestRiskModelType riskModelType = BacktestRiskModelType.FULL_CAPITAL;
 
-    private double leverage;
+    @DecimalMin(value = "1.0", message = "Leverage must be at least 1")
+    private double leverage = 1.0;
 
-    private double riskPercent;
+    @DecimalMin(value = "0.01", message = "Risk percent must be greater than 0")
+    private double riskPercent = 1.0;
 
-    private double fixedNotional;
+    @DecimalMin(value = "0.0", message = "Fixed notional cannot be negative")
+    private double fixedNotional = 100.0;
 
-    private double feePercent;
-
+    @DecimalMin(value = "0.0", message = "Fee percent cannot be negative")
+    private double feePercent = 0.04;
 }

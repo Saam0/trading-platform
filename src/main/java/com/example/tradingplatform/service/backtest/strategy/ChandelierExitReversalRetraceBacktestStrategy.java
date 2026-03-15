@@ -50,6 +50,8 @@ public class ChandelierExitReversalRetraceBacktestStrategy extends AbstractChand
         double capital = request.getInitialCapital();
 
         for (int i = request.getLength() - 1; i < context.getSeries().getBarCount(); i++) {
+            Candle candle = candles.get(i);
+
             Num rawLongStop = context.getHighestIndicator().getValue(i)
                     .minus(context.getAtrIndicator().getValue(i).multipliedBy(multiplierNum));
 
@@ -87,13 +89,42 @@ public class ChandelierExitReversalRetraceBacktestStrategy extends AbstractChand
             boolean buySignal = previousDirection == -1 && currentDirection == 1;
             boolean sellSignal = previousDirection == 1 && currentDirection == -1;
 
+            if (openPosition != null && i > openPosition.entryIndex && isFixedRrTpEnabled(request)) {
+                boolean targetHit = SIDE_LONG.equals(openPosition.side)
+                        ? isLongTargetHit(candle, openPosition.targetPrice)
+                        : isShortTargetHit(candle, openPosition.targetPrice);
+
+                if (targetHit) {
+                    TradeExecution execution = buildTrade(
+                            openPosition.side,
+                            openPosition.entryTime,
+                            openPosition.entryPrice,
+                            openPosition.stopPrice,
+                            openPosition.targetPrice,
+                            candle.getTime(),
+                            openPosition.targetPrice,
+                            openPosition.entryIndex,
+                            i,
+                            "TAKE_PROFIT_RR",
+                            capital,
+                            request
+                    );
+
+                    trades.add(execution.getTrade());
+                    capital = execution.getCapitalAfter();
+                    openPosition = null;
+                }
+            }
+
             if (openPosition != null) {
                 if (SIDE_LONG.equals(openPosition.side) && sellSignal) {
                     TradeExecution execution = buildTrade(
                             SIDE_LONG,
                             openPosition.entryTime,
                             openPosition.entryPrice,
-                            candles.get(i).getTime(),
+                            openPosition.stopPrice,
+                            openPosition.targetPrice,
+                            candle.getTime(),
                             currentClose,
                             openPosition.entryIndex,
                             i,
@@ -118,7 +149,9 @@ public class ChandelierExitReversalRetraceBacktestStrategy extends AbstractChand
                             SIDE_SHORT,
                             openPosition.entryTime,
                             openPosition.entryPrice,
-                            candles.get(i).getTime(),
+                            openPosition.stopPrice,
+                            openPosition.targetPrice,
+                            candle.getTime(),
                             currentClose,
                             openPosition.entryIndex,
                             i,
@@ -142,22 +175,34 @@ public class ChandelierExitReversalRetraceBacktestStrategy extends AbstractChand
             }
 
             if (openPosition == null && pendingEntry != null && i > pendingEntry.createdIndex) {
-                Candle candle = candles.get(i);
-
                 if (SIDE_SHORT.equals(pendingEntry.side) && candle.getHigh() >= pendingEntry.triggerPrice) {
+                    double stopPrice = shortStop.doubleValue();
+                    double targetPrice = isFixedRrTpEnabled(request)
+                            ? calculateShortTarget(pendingEntry.triggerPrice, stopPrice, request.getRiskRewardRatio())
+                            : 0.0;
+
                     openPosition = new OpenPosition(
                             SIDE_SHORT,
-                            candles.get(i).getTime(),
+                            candle.getTime(),
                             i,
-                            pendingEntry.triggerPrice
+                            pendingEntry.triggerPrice,
+                            stopPrice,
+                            targetPrice
                     );
                     pendingEntry = null;
                 } else if (SIDE_LONG.equals(pendingEntry.side) && candle.getLow() <= pendingEntry.triggerPrice) {
+                    double stopPrice = longStop.doubleValue();
+                    double targetPrice = isFixedRrTpEnabled(request)
+                            ? calculateLongTarget(pendingEntry.triggerPrice, stopPrice, request.getRiskRewardRatio())
+                            : 0.0;
+
                     openPosition = new OpenPosition(
                             SIDE_LONG,
-                            candles.get(i).getTime(),
+                            candle.getTime(),
                             i,
-                            pendingEntry.triggerPrice
+                            pendingEntry.triggerPrice,
+                            stopPrice,
+                            targetPrice
                     );
                     pendingEntry = null;
                 }
@@ -186,13 +231,16 @@ public class ChandelierExitReversalRetraceBacktestStrategy extends AbstractChand
 
         if (openPosition != null) {
             int lastIndex = candles.size() - 1;
+            Candle lastCandle = candles.get(lastIndex);
 
             TradeExecution execution = buildTrade(
                     openPosition.side,
                     openPosition.entryTime,
                     openPosition.entryPrice,
-                    candles.get(lastIndex).getTime(),
-                    candles.get(lastIndex).getClose(),
+                    openPosition.stopPrice,
+                    openPosition.targetPrice,
+                    lastCandle.getTime(),
+                    lastCandle.getClose(),
                     openPosition.entryIndex,
                     lastIndex,
                     "FORCED_LAST_CANDLE_EXIT",
@@ -229,12 +277,23 @@ public class ChandelierExitReversalRetraceBacktestStrategy extends AbstractChand
         private final Object entryTime;
         private final int entryIndex;
         private final double entryPrice;
+        private final double stopPrice;
+        private final double targetPrice;
 
-        private OpenPosition(String side, Object entryTime, int entryIndex, double entryPrice) {
+        private OpenPosition(
+                String side,
+                Object entryTime,
+                int entryIndex,
+                double entryPrice,
+                double stopPrice,
+                double targetPrice
+        ) {
             this.side = side;
             this.entryTime = entryTime;
             this.entryIndex = entryIndex;
             this.entryPrice = entryPrice;
+            this.stopPrice = stopPrice;
+            this.targetPrice = targetPrice;
         }
     }
 }

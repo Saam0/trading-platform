@@ -4,6 +4,7 @@ import com.example.tradingplatform.dto.BacktestRequest;
 import com.example.tradingplatform.dto.BacktestResultDto;
 import com.example.tradingplatform.dto.BacktestTradeDto;
 import com.example.tradingplatform.exception.InvalidRequestException;
+import com.example.tradingplatform.model.BacktestExitModelType;
 import com.example.tradingplatform.model.BacktestStrategyType;
 import com.example.tradingplatform.model.Candle;
 import com.example.tradingplatform.service.backtest.BacktestStrategy;
@@ -124,10 +125,40 @@ public abstract class AbstractChandelierExitBacktestStrategy implements Backtest
         return new CeContext(series, closePriceIndicator, atrIndicator, highestIndicator, lowestIndicator);
     }
 
+    protected boolean isFixedRrTpEnabled(BacktestRequest request) {
+        return request.getExitModelType() == BacktestExitModelType.FIXED_RR_TP;
+    }
+
+    protected double calculateLongTarget(double entryPrice, double stopPrice, double riskRewardRatio) {
+        double riskDistance = entryPrice - stopPrice;
+        if (riskDistance <= 0.0) {
+            return entryPrice;
+        }
+        return entryPrice + (riskDistance * riskRewardRatio);
+    }
+
+    protected double calculateShortTarget(double entryPrice, double stopPrice, double riskRewardRatio) {
+        double riskDistance = stopPrice - entryPrice;
+        if (riskDistance <= 0.0) {
+            return entryPrice;
+        }
+        return entryPrice - (riskDistance * riskRewardRatio);
+    }
+
+    protected boolean isLongTargetHit(Candle candle, double targetPrice) {
+        return candle.getHigh() >= targetPrice;
+    }
+
+    protected boolean isShortTargetHit(Candle candle, double targetPrice) {
+        return candle.getLow() <= targetPrice;
+    }
+
     protected TradeExecution buildTrade(
             String side,
             Object entryTime,
             double entryPrice,
+            double stopPrice,
+            double targetPrice,
             Object exitTime,
             double exitPrice,
             int entryIndex,
@@ -170,6 +201,8 @@ public abstract class AbstractChandelierExitBacktestStrategy implements Backtest
                 side,
                 entryTime,
                 round(entryPrice),
+                round(stopPrice),
+                round(targetPrice),
                 round(quantity),
                 round(positionSize),
                 round(totalFee),
@@ -221,6 +254,8 @@ public abstract class AbstractChandelierExitBacktestStrategy implements Backtest
         return new BacktestResultDto(
                 strategyName,
                 strategyType,
+                request.getExitModelType(),
+                round(request.getRiskRewardRatio()),
                 request.getTicker(),
                 request.getInterval(),
                 request.getLimit(),

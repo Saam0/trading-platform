@@ -15,6 +15,10 @@ public class BacktestTradeDto {
 
     private double entryPrice;
 
+    private double stopPrice;
+
+    private double targetPrice;
+
     private double quantity;
 
     private double positionSize;
