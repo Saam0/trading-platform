@@ -6,6 +6,9 @@ document.addEventListener('DOMContentLoaded', function () {
     const toInput = document.getElementById('btToInput');
 
     const riskModelSelect = document.getElementById('btRiskModelSelect');
+    const exitModelSelect = document.getElementById('btExitModelSelect');
+    const riskRewardSelect = document.getElementById('btRiskRewardSelect');
+
     const capitalInput = document.getElementById('btCapitalInput');
     const leverageInput = document.getElementById('btLeverageInput');
     const riskInput = document.getElementById('btRiskInput');
@@ -37,6 +40,8 @@ document.addEventListener('DOMContentLoaded', function () {
     const finalCapitalLabel = document.getElementById('btFinalCapital');
     const netProfitLabel = document.getElementById('btNetProfit');
     const riskModelLabel = document.getElementById('btRiskModel');
+    const exitModelLabel = document.getElementById('btExitModel');
+    const riskRewardLabel = document.getElementById('btRiskReward');
     const leverageFeeLabel = document.getElementById('btLeverageFee');
     const totalPnlPercentLabel = document.getElementById('btTotalPnlPercent');
 
@@ -51,9 +56,13 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function updateRiskModelUi() {
         const riskModel = riskModelSelect.value;
-
         riskInput.disabled = riskModel !== 'RISK_PERCENT';
         fixedNotionalInput.disabled = riskModel !== 'FIXED_NOTIONAL';
+    }
+
+    function updateExitModelUi() {
+        const exitModel = exitModelSelect.value;
+        riskRewardSelect.disabled = exitModel !== 'FIXED_RR_TP';
     }
 
     function showLoading() {
@@ -170,6 +179,8 @@ document.addEventListener('DOMContentLoaded', function () {
             interval: document.getElementById('intervalSelect').value,
             strategyType: strategySelect.value,
             riskModelType: riskModelSelect.value,
+            exitModelType: exitModelSelect.value,
+            riskRewardRatio: Number(riskRewardSelect.value),
             initialCapital: Number(capitalInput.value),
             leverage: Number(leverageInput.value),
             riskPercent: Number(riskInput.value),
@@ -273,6 +284,10 @@ document.addEventListener('DOMContentLoaded', function () {
         finalCapitalLabel.textContent = formatMoney(result.finalCapital);
         netProfitLabel.textContent = formatMoney(result.netProfit);
         riskModelLabel.textContent = formatValue(requestBody.riskModelType);
+        exitModelLabel.textContent = formatValue(requestBody.exitModelType);
+        riskRewardLabel.textContent = requestBody.exitModelType === 'FIXED_RR_TP'
+            ? '1:' + formatValue(requestBody.riskRewardRatio)
+            : '-';
         leverageFeeLabel.textContent =
             formatValue(requestBody.leverage) + 'x / ' + formatPercent(requestBody.feePercent);
         totalPnlPercentLabel.textContent = formatPercent(result.totalPnlPercent);
@@ -405,9 +420,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
     updateModeUi();
     updateRiskModelUi();
+    updateExitModelUi();
     clearTradesTable('No backtest results yet.');
 
     modeSelect.addEventListener('change', updateModeUi);
     riskModelSelect.addEventListener('change', updateRiskModelUi);
+    exitModelSelect.addEventListener('change', updateExitModelUi);
     runButton.addEventListener('click', runBacktest);
 });
