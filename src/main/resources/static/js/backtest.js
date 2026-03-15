@@ -103,6 +103,58 @@ document.addEventListener('DOMContentLoaded', function () {
         return String(value);
     }
 
+    function pad2(value) {
+        return String(value).padStart(2, '0');
+    }
+
+    function formatDateObject(date) {
+        return date.getFullYear()
+            + '-' + pad2(date.getMonth() + 1)
+            + '-' + pad2(date.getDate())
+            + ' ' + pad2(date.getHours())
+            + ':' + pad2(date.getMinutes());
+    }
+
+    function formatDateTimeValue(value) {
+        if (value === null || value === undefined || value === '') {
+            return '-';
+        }
+
+        if (typeof value === 'number') {
+            const date = new Date(value * 1000);
+            if (!Number.isNaN(date.getTime())) {
+                return formatDateObject(date);
+            }
+        }
+
+        if (typeof value === 'string') {
+            if (/^\d+$/.test(value)) {
+                const numericValue = Number(value);
+                const millis = value.length >= 13 ? numericValue : numericValue * 1000;
+                const numericDate = new Date(millis);
+
+                if (!Number.isNaN(numericDate.getTime())) {
+                    return formatDateObject(numericDate);
+                }
+            }
+
+            if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+                return value;
+            }
+
+            const parsedDate = new Date(value);
+            if (!Number.isNaN(parsedDate.getTime())) {
+                return formatDateObject(parsedDate);
+            }
+        }
+
+        return String(value);
+    }
+
+    function formatRangeValue(value) {
+        return formatDateTimeValue(value);
+    }
+
     function datetimeLocalToMillis(value) {
         if (!value) {
             return null;
@@ -205,7 +257,7 @@ document.addEventListener('DOMContentLoaded', function () {
         summaryBlock.classList.remove('d-none');
 
         strategyLabel.textContent = formatValue(result.strategy);
-        rangeLabel.textContent = formatValue(result.startTime) + ' → ' + formatValue(result.endTime);
+        rangeLabel.textContent = formatRangeValue(result.startTime) + ' → ' + formatRangeValue(result.endTime);
         tradesLabel.textContent = formatValue(result.totalTrades);
         winRateLabel.textContent = formatPercent(result.winRate);
         netProfitPercentLabel.textContent = formatPercent(result.netProfitPercent);
@@ -259,14 +311,14 @@ document.addEventListener('DOMContentLoaded', function () {
                 + '<tr>'
                 + '<td>' + (index + 1) + '</td>'
                 + '<td>' + formatValue(trade.side) + '</td>'
-                + '<td>' + formatValue(trade.entryTime) + '</td>'
+                + '<td>' + formatDateTimeValue(trade.entryTime) + '</td>'
                 + '<td>' + formatNumber(trade.entryPrice) + '</td>'
                 + '<td>' + formatNumber(trade.quantity) + '</td>'
                 + '<td>' + formatMoney(trade.positionSize) + '</td>'
                 + '<td>' + formatMoney(trade.fee) + '</td>'
                 + '<td>' + formatMoney(trade.capitalBefore) + '</td>'
                 + '<td>' + formatMoney(trade.capitalAfter) + '</td>'
-                + '<td>' + formatValue(trade.exitTime) + '</td>'
+                + '<td>' + formatDateTimeValue(trade.exitTime) + '</td>'
                 + '<td>' + formatNumber(trade.exitPrice) + '</td>'
                 + '<td class="' + pnlClass + '">' + formatMoney(trade.pnl) + '</td>'
                 + '<td class="' + pnlPercentClass + '">' + formatPercent(trade.pnlPercent) + '</td>'
