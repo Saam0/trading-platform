@@ -67,6 +67,15 @@ public class PaperTradingOrchestratorImpl implements PaperTradingOrchestrator {
                 session.getInterval()
         );
 
+        // build a unique candle key to avoid processing the same candle twice
+        String candleKey = extractCandleKey(latestEvent.getCandle());
+
+        // skip the cycle if this candle was already processed
+        if (candleKey.equals(session.getLastProcessedCandleKey())) {
+            session.setLastEventMessage("Skipped duplicate candle: " + candleKey);
+            return;
+        }
+
         // load recent candles for strategy evaluation
         List<Candle> candles = marketDataFeed.getRecentCandles(
                 session.getTicker(),
@@ -82,6 +91,9 @@ public class PaperTradingOrchestratorImpl implements PaperTradingOrchestrator {
 
         // apply the strategy decision to the broker/account state
         applyDecision(session, latestEvent.getCandle(), decision);
+
+        // remember the processed candle only after the cycle is fully completed
+        session.setLastProcessedCandleKey(candleKey);
     }
 
     /**
@@ -176,5 +188,15 @@ public class PaperTradingOrchestratorImpl implements PaperTradingOrchestrator {
 
         paperBroker.closePosition(session.getAccountState(), price, reason);
         session.setLastEventMessage("Closed " + expectedSide + ": " + reason);
+    }
+
+    /**
+     * Extracts a stable unique key for the candle.
+     *
+     * @param candle market candle
+     * @return candle key
+     */
+    private String extractCandleKey(Candle candle) {
+        return String.valueOf(candle.getTime());
     }
 }

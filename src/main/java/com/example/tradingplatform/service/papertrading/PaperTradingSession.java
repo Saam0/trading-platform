@@ -27,4 +27,7 @@ public class PaperTradingSession {
 
     /** Account state attached to the session */
     private PaperTradingAccountState accountState;
+
+    /** Unique key of the last processed candle to avoid duplicate processing */
+    private String lastProcessedCandleKey;
 }
