@@ -71,8 +71,8 @@ public class PaperTradingOrchestratorImpl implements PaperTradingOrchestrator {
         String candleKey = extractCandleKey(latestEvent.getCandle());
 
         // skip the cycle if this candle was already processed
+        // do not overwrite the last meaningful event message
         if (candleKey.equals(session.getLastProcessedCandleKey())) {
-            session.setLastEventMessage("Skipped duplicate candle: " + candleKey);
             return;
         }
 
