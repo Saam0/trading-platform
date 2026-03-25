@@ -99,6 +99,16 @@ public class PaperTradingServiceImpl implements PaperTradingService {
     }
 
     /**
+     * Returns the internal in-memory session.
+     *
+     * @return current session
+     */
+    @Override
+    public synchronized PaperTradingSession getSession() {
+        return session;
+    }
+
+    /**
      * Maps the internal session state to a status dto.
      *
      * @return mapped status dto

@@ -29,4 +29,11 @@ public interface PaperTradingService {
      * @return session status
      */
     PaperTradingStatusDto getStatus();
+
+    /**
+     * Returns the current in-memory paper trading session.
+     *
+     * @return active session
+     */
+    PaperTradingSession getSession();
 }

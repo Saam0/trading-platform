@@ -1,0 +1,180 @@
+package com.example.tradingplatform.service.papertrading;
+
+import com.example.tradingplatform.dto.StrategyDecision;
+import com.example.tradingplatform.model.Candle;
+import com.example.tradingplatform.model.PaperPositionSide;
+import com.example.tradingplatform.model.PaperTradingSessionStatus;
+import com.example.tradingplatform.model.TradingSignalAction;
+import com.example.tradingplatform.service.papertrading.market.MarketCandleEvent;
+import com.example.tradingplatform.service.papertrading.market.MarketDataFeed;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+
+/**
+ * Default implementation of the paper trading orchestrator.
+ *
+ * <p>This class is the core engine coordinator for one trading cycle.</p>
+ */
+@Service
+public class PaperTradingOrchestratorImpl implements PaperTradingOrchestrator {
+
+    /** Number of recent candles loaded for strategy evaluation */
+    private static final int STRATEGY_CANDLE_LIMIT = 200;
+
+    /** Service that provides access to the active paper trading session */
+    private final PaperTradingService paperTradingService;
+
+    /** Market data feed used to fetch latest market information */
+    private final MarketDataFeed marketDataFeed;
+
+    /** Strategy resolver used to find the active strategy */
+    private final TradingStrategyResolver tradingStrategyResolver;
+
+    /** Broker used to simulate order execution */
+    private final PaperBroker paperBroker;
+
+    public PaperTradingOrchestratorImpl(
+            PaperTradingService paperTradingService,
+            MarketDataFeed marketDataFeed,
+            TradingStrategyResolver tradingStrategyResolver,
+            PaperBroker paperBroker
+    ) {
+        this.paperTradingService = paperTradingService;
+        this.marketDataFeed = marketDataFeed;
+        this.tradingStrategyResolver = tradingStrategyResolver;
+        this.paperBroker = paperBroker;
+    }
+
+    /**
+     * Processes one trading cycle for the active session.
+     *
+     * <p>The method fetches market data, evaluates the active strategy
+     * and applies the resulting decision to the broker/account state.</p>
+     */
+    @Override
+    public void processNextCycle() {
+        PaperTradingSession session = paperTradingService.getSession();
+
+        // do nothing if no active session exists
+        if (session == null || session.getStatus() != PaperTradingSessionStatus.RUNNING) {
+            return;
+        }
+
+        // fetch the latest closed candle event
+        MarketCandleEvent latestEvent = marketDataFeed.pollLatestClosedCandle(
+                session.getTicker(),
+                session.getInterval()
+        );
+
+        // load recent candles for strategy evaluation
+        List<Candle> candles = marketDataFeed.getRecentCandles(
+                session.getTicker(),
+                session.getInterval(),
+                STRATEGY_CANDLE_LIMIT
+        );
+
+        // resolve the active strategy by code
+        TradingStrategy strategy = tradingStrategyResolver.resolve(session.getStrategyCode());
+
+        // ask the strategy what action it wants to take
+        StrategyDecision decision = strategy.evaluate(candles, session.getAccountState());
+
+        // apply the strategy decision to the broker/account state
+        applyDecision(session, latestEvent.getCandle(), decision);
+    }
+
+    /**
+     * Applies a strategy decision to the current paper trading session.
+     *
+     * @param session active paper trading session
+     * @param latestCandle latest closed candle
+     * @param decision strategy output decision
+     */
+    private void applyDecision(
+            PaperTradingSession session,
+            Candle latestCandle,
+            StrategyDecision decision
+    ) {
+        double price = latestCandle.getClose();
+
+        // no action requested by the strategy
+        if (decision.getAction() == TradingSignalAction.HOLD) {
+            session.setLastEventMessage("HOLD: " + decision.getReason());
+            return;
+        }
+
+        // open long only if no position is currently open
+        if (decision.getAction() == TradingSignalAction.ENTER_LONG) {
+            if (!paperBroker.hasOpenPosition(session.getAccountState())) {
+                paperBroker.openLong(
+                        session.getAccountState(),
+                        price,
+                        decision.getSuggestedStopPrice() != null ? decision.getSuggestedStopPrice() : 0.0,
+                        decision.getSuggestedTargetPrice() != null ? decision.getSuggestedTargetPrice() : 0.0,
+                        decision.getReason()
+                );
+                session.setLastEventMessage("Opened LONG: " + decision.getReason());
+            } else {
+                session.setLastEventMessage("Skipped ENTER_LONG because a position is already open");
+            }
+            return;
+        }
+
+        // open short only if no position is currently open
+        if (decision.getAction() == TradingSignalAction.ENTER_SHORT) {
+            if (!paperBroker.hasOpenPosition(session.getAccountState())) {
+                paperBroker.openShort(
+                        session.getAccountState(),
+                        price,
+                        decision.getSuggestedStopPrice() != null ? decision.getSuggestedStopPrice() : 0.0,
+                        decision.getSuggestedTargetPrice() != null ? decision.getSuggestedTargetPrice() : 0.0,
+                        decision.getReason()
+                );
+                session.setLastEventMessage("Opened SHORT: " + decision.getReason());
+            } else {
+                session.setLastEventMessage("Skipped ENTER_SHORT because a position is already open");
+            }
+            return;
+        }
+
+        // close long only if the current open side is LONG
+        if (decision.getAction() == TradingSignalAction.EXIT_LONG) {
+            closeOpenPositionIfMatchingSide(session, price, PaperPositionSide.LONG, decision.getReason());
+            return;
+        }
+
+        // close short only if the current open side is SHORT
+        if (decision.getAction() == TradingSignalAction.EXIT_SHORT) {
+            closeOpenPositionIfMatchingSide(session, price, PaperPositionSide.SHORT, decision.getReason());
+        }
+    }
+
+    /**
+     * Closes the open position if it matches the expected side.
+     *
+     * @param session active paper trading session
+     * @param price exit price
+     * @param expectedSide side required for closing
+     * @param reason close reason
+     */
+    private void closeOpenPositionIfMatchingSide(
+            PaperTradingSession session,
+            double price,
+            PaperPositionSide expectedSide,
+            String reason
+    ) {
+        if (!paperBroker.hasOpenPosition(session.getAccountState())) {
+            session.setLastEventMessage("Skipped close because no open position exists");
+            return;
+        }
+
+        if (paperBroker.getOpenSide(session.getAccountState()) != expectedSide) {
+            session.setLastEventMessage("Skipped close because open side does not match " + expectedSide);
+            return;
+        }
+
+        paperBroker.closePosition(session.getAccountState(), price, reason);
+        session.setLastEventMessage("Closed " + expectedSide + ": " + reason);
+    }
+}
