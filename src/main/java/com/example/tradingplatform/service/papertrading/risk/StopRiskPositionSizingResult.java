@@ -21,6 +21,18 @@ public class StopRiskPositionSizingResult {
     /** Stop distance expressed as percent of entry price */
     private double stopDistancePercent;
 
+    /** Entry fee percent */
+    private double entryFeePercent;
+
+    /** Exit fee percent */
+    private double exitFeePercent;
+
+    /** Total fee percent considered in the calculation */
+    private double totalFeePercent;
+
+    /** Effective total risk percent = stop distance percent + total fee percent */
+    private double effectiveRiskPercent;
+
     /** Calculated notional position size */
     private double positionSize;
 
