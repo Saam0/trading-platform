@@ -19,8 +19,21 @@ public class PaperBrokerImpl implements PaperBroker {
     /** Resolver used to select the active position sizing model */
     private final PaperTradingPositionSizerResolver positionSizerResolver;
 
-    public PaperBrokerImpl(PaperTradingPositionSizerResolver positionSizerResolver) {
+    /** Service used to resolve trade target price based on exit model */
+    private final TradePlanService tradePlanService;
+
+    /**
+     * Creates the paper broker with required collaborators.
+     *
+     * @param positionSizerResolver resolver for position sizing models
+     * @param tradePlanService service for stop/target trade planning
+     */
+    public PaperBrokerImpl(
+            PaperTradingPositionSizerResolver positionSizerResolver,
+            TradePlanService tradePlanService
+    ) {
         this.positionSizerResolver = positionSizerResolver;
+        this.tradePlanService = tradePlanService;
     }
 
     /**
@@ -29,7 +42,7 @@ public class PaperBrokerImpl implements PaperBroker {
      * @param state current account state
      * @param price entry price
      * @param stopPrice optional stop price
-     * @param targetPrice optional target price
+     * @param targetPrice optional target price hint
      * @param reason open reason
      * @return created position
      */
@@ -51,13 +64,22 @@ public class PaperBrokerImpl implements PaperBroker {
         // derive quantity from entry price
         double quantity = positionSize / price;
 
+        // resolve final target price from the configured exit model
+        double resolvedTargetPrice = resolveTargetPrice(
+                state,
+                price,
+                stopPrice,
+                targetPrice,
+                PaperPositionSide.LONG
+        );
+
         PaperTradingPositionDto position = new PaperTradingPositionDto(
                 PaperPositionSide.LONG,
                 price,
                 quantity,
                 positionSize,
                 stopPrice,
-                targetPrice
+                resolvedTargetPrice
         );
 
         // store the newly opened position in account state
@@ -72,7 +94,7 @@ public class PaperBrokerImpl implements PaperBroker {
      * @param state current account state
      * @param price entry price
      * @param stopPrice optional stop price
-     * @param targetPrice optional target price
+     * @param targetPrice optional target price hint
      * @param reason open reason
      * @return created position
      */
@@ -94,13 +116,22 @@ public class PaperBrokerImpl implements PaperBroker {
         // derive quantity from entry price
         double quantity = positionSize / price;
 
+        // resolve final target price from the configured exit model
+        double resolvedTargetPrice = resolveTargetPrice(
+                state,
+                price,
+                stopPrice,
+                targetPrice,
+                PaperPositionSide.SHORT
+        );
+
         PaperTradingPositionDto position = new PaperTradingPositionDto(
                 PaperPositionSide.SHORT,
                 price,
                 quantity,
                 positionSize,
                 stopPrice,
-                targetPrice
+                resolvedTargetPrice
         );
 
         // store the newly opened position in account state
@@ -129,13 +160,13 @@ public class PaperBrokerImpl implements PaperBroker {
 
         PaperTradingPositionDto position = state.getOpenPosition();
 
-        // calculate raw PnL before trading fee
+        // calculate raw pnl before trading fee
         double grossPnl = calculatePnl(position, price);
 
         // calculate fee using position notional size
         double fee = calculateFee(position.getPositionSize(), state.getFeePercent());
 
-        // final realized PnL after fee
+        // final realized pnl after fee
         double netPnl = grossPnl - fee;
 
         // update realized account balance
@@ -216,6 +247,45 @@ public class PaperBrokerImpl implements PaperBroker {
                 positionSizerResolver.resolve(state.getRiskModelType());
 
         return positionSizer.calculatePositionSize(state);
+    }
+
+    /**
+     * Resolves final target price.
+     *
+     * <p>If the caller already supplied a target price greater than zero,
+     * that explicit target is used.
+     * Otherwise the target is calculated from the configured exit model.</p>
+     *
+     * @param state current account state
+     * @param entryPrice entry price
+     * @param stopPrice stop price
+     * @param targetPrice explicit target price hint
+     * @param side position side
+     * @return resolved target price
+     */
+    private double resolveTargetPrice(
+            PaperTradingAccountState state,
+            double entryPrice,
+            double stopPrice,
+            double targetPrice,
+            PaperPositionSide side
+    ) {
+        // explicit target from the caller has the highest priority
+        if (targetPrice > 0.0) {
+            return targetPrice;
+        }
+
+        // if there is no valid stop, RR target cannot be calculated
+        if (stopPrice <= 0.0) {
+            return 0.0;
+        }
+
+        return tradePlanService.resolveTargetPrice(
+                state,
+                entryPrice,
+                stopPrice,
+                side
+        );
     }
 
     /**

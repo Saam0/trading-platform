@@ -1,6 +1,7 @@
 package com.example.tradingplatform.dto;
 
 import com.example.tradingplatform.model.ChartInterval;
+import com.example.tradingplatform.model.ExitModelType;
 import com.example.tradingplatform.model.PaperTradingRiskModelType;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
@@ -90,4 +91,10 @@ public class PaperTradingStartRequest {
             message = "Planned stop price must be greater than 0"
     )
     private Double plannedStopPrice;
+
+    /** Exit model type */
+    private ExitModelType exitModelType = ExitModelType.SIGNAL_ONLY;
+
+    /** Risk reward ratio (used when FIXED_RR is selected) */
+    private double riskRewardRatio = 3.0;
 }

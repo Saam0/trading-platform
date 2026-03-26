@@ -74,6 +74,10 @@ public class PaperTradingServiceImpl implements PaperTradingService {
         accountState.setPlannedEntryPrice(request.getPlannedEntryPrice());
         accountState.setPlannedStopPrice(request.getPlannedStopPrice());
 
+        // store exit model configuration
+        accountState.setExitModelType(request.getExitModelType());
+        accountState.setRiskRewardRatio(request.getRiskRewardRatio());
+
         accountState.setClosedTrades(new ArrayList<>());
 
         // initialize the session metadata
@@ -147,6 +151,7 @@ public class PaperTradingServiceImpl implements PaperTradingService {
                     0.0,
                     0.0,
                     0.0,
+                    0.0,
                     null,
                     new ArrayList<>(),
                     session.getLastEventMessage()
@@ -170,6 +175,12 @@ public class PaperTradingServiceImpl implements PaperTradingService {
                 ? 0.0
                 : (totalPnl * 100.0) / session.getAccountState().getInitialBalance();
 
+        // calculate required leverage for the current open position
+        double requiredLeverage = calculateRequiredLeverage(
+                session.getAccountState().getOpenPosition(),
+                session.getAccountState().getCurrentBalance()
+        );
+
         return new PaperTradingStatusDto(
                 session.getStatus(),
                 session.getTicker(),
@@ -185,6 +196,7 @@ public class PaperTradingServiceImpl implements PaperTradingService {
                 equity,
                 totalPnl,
                 totalPnlPercent,
+                requiredLeverage,
                 session.getAccountState().getOpenPosition(),
                 session.getAccountState().getClosedTrades(),
                 session.getLastEventMessage()
@@ -250,5 +262,23 @@ public class PaperTradingServiceImpl implements PaperTradingService {
         }
 
         return (unrealizedPnl * 100.0) / openPosition.getPositionSize();
+    }
+
+    /**
+     * Calculates the leverage required for the current open position.
+     *
+     * @param openPosition current open position
+     * @param currentBalance current realized account balance
+     * @return required leverage
+     */
+    private double calculateRequiredLeverage(
+            PaperTradingPositionDto openPosition,
+            double currentBalance
+    ) {
+        if (openPosition == null || currentBalance <= 0.0) {
+            return 0.0;
+        }
+
+        return openPosition.getPositionSize() / currentBalance;
     }
 }

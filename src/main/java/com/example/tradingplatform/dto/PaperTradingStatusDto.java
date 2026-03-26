@@ -58,6 +58,9 @@ public class PaperTradingStatusDto {
     /** Total accumulated pnl in percent */
     private double totalPnlPercent;
 
+    /** Required leverage for current open position */
+    private double requiredLeverage;
+
     /** Currently open position, if any */
     private PaperTradingPositionDto openPosition;
 
@@ -66,4 +69,6 @@ public class PaperTradingStatusDto {
 
     /** Last session event message */
     private String lastEventMessage;
+
+
 }

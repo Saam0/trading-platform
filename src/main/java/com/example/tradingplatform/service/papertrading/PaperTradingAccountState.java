@@ -2,6 +2,7 @@ package com.example.tradingplatform.service.papertrading;
 
 import com.example.tradingplatform.dto.PaperTradingPositionDto;
 import com.example.tradingplatform.dto.PaperTradingTradeDto;
+import com.example.tradingplatform.model.ExitModelType;
 import com.example.tradingplatform.model.PaperTradingRiskModelType;
 import lombok.Data;
 
@@ -51,4 +52,10 @@ public class PaperTradingAccountState {
 
     /** History of closed trades */
     private List<PaperTradingTradeDto> closedTrades = new ArrayList<>();
+
+    /** Exit model used for trade management */
+    private ExitModelType exitModelType;
+
+    /** Risk-reward ratio (e.g. 3.0 = 1:3) */
+    private double riskRewardRatio;
 }
