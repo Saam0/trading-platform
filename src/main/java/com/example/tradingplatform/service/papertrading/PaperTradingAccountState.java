@@ -32,6 +32,20 @@ public class PaperTradingAccountState {
     /** Risk percent per trade */
     private double riskPercent;
 
+    /**
+     * Planned entry price used for stop-based sizing calculations.
+     *
+     * <p>This field is mostly relevant before a trade is opened.</p>
+     */
+    private Double plannedEntryPrice;
+
+    /**
+     * Planned stop price used for stop-based sizing calculations.
+     *
+     * <p>This field is mostly relevant before a trade is opened.</p>
+     */
+    private Double plannedStopPrice;
+
     /** Currently open position */
     private PaperTradingPositionDto openPosition;
 

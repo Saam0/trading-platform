@@ -58,7 +58,7 @@ public class PaperTradingStartRequest {
     /**
      * Risk percent per trade.
      *
-     * <p>This is especially useful for future stop-based sizing models.</p>
+     * <p>This is especially useful for stop-based sizing models.</p>
      */
     @DecimalMin(
             value = "0.0",
@@ -66,4 +66,28 @@ public class PaperTradingStartRequest {
             message = "Risk percent cannot be negative"
     )
     private double riskPercent = 1.0;
+
+    /**
+     * Planned entry price used by stop-based sizing models.
+     *
+     * <p>Optional for FULL_BALANCE mode, but required later for STOP_RISK_PERCENT mode.</p>
+     */
+    @DecimalMin(
+            value = "0.0",
+            inclusive = false,
+            message = "Planned entry price must be greater than 0"
+    )
+    private Double plannedEntryPrice;
+
+    /**
+     * Planned stop price used by stop-based sizing models.
+     *
+     * <p>Optional for FULL_BALANCE mode, but required later for STOP_RISK_PERCENT mode.</p>
+     */
+    @DecimalMin(
+            value = "0.0",
+            inclusive = false,
+            message = "Planned stop price must be greater than 0"
+    )
+    private Double plannedStopPrice;
 }
