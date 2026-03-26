@@ -1,6 +1,7 @@
 package com.example.tradingplatform.dto;
 
 import com.example.tradingplatform.model.ChartInterval;
+import com.example.tradingplatform.model.PaperTradingRiskModelType;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
@@ -43,11 +44,26 @@ public class PaperTradingStartRequest {
     )
     private double feePercent = 0.1;
 
-    /** Leverage for paper position sizing */
+    /** Default leverage for paper trading */
     @DecimalMin(
             value = "1.0",
             inclusive = true,
             message = "Leverage must be at least 1"
     )
     private double leverage = 1.0;
+
+    /** Position sizing model used by the session */
+    private PaperTradingRiskModelType riskModelType = PaperTradingRiskModelType.FULL_BALANCE;
+
+    /**
+     * Risk percent per trade.
+     *
+     * <p>This is especially useful for future stop-based sizing models.</p>
+     */
+    @DecimalMin(
+            value = "0.0",
+            inclusive = true,
+            message = "Risk percent cannot be negative"
+    )
+    private double riskPercent = 1.0;
 }

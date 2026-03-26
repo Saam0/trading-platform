@@ -2,6 +2,7 @@ package com.example.tradingplatform.service.papertrading;
 
 import com.example.tradingplatform.dto.PaperTradingPositionDto;
 import com.example.tradingplatform.dto.PaperTradingTradeDto;
+import com.example.tradingplatform.model.PaperTradingRiskModelType;
 import lombok.Data;
 
 import java.util.ArrayList;
@@ -24,6 +25,12 @@ public class PaperTradingAccountState {
 
     /** Leverage used for position sizing */
     private double leverage;
+
+    /** Position sizing model used by this account */
+    private PaperTradingRiskModelType riskModelType;
+
+    /** Risk percent per trade */
+    private double riskPercent;
 
     /** Currently open position */
     private PaperTradingPositionDto openPosition;
