@@ -1,9 +1,13 @@
 package com.example.tradingplatform.service.papertrading;
 
+import com.example.tradingplatform.dto.PaperTradingPositionDto;
 import com.example.tradingplatform.dto.PaperTradingStartRequest;
 import com.example.tradingplatform.dto.PaperTradingStatusDto;
 import com.example.tradingplatform.exception.InvalidRequestException;
+import com.example.tradingplatform.model.PaperPositionSide;
 import com.example.tradingplatform.model.PaperTradingSessionStatus;
+import com.example.tradingplatform.service.papertrading.market.MarketCandleEvent;
+import com.example.tradingplatform.service.papertrading.market.MarketDataFeed;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -22,6 +26,9 @@ public class PaperTradingServiceImpl implements PaperTradingService {
     /** Broker used for simulated execution */
     private final PaperBroker paperBroker;
 
+    /** Market data feed used to resolve current market price for status view */
+    private final MarketDataFeed marketDataFeed;
+
     /** Single in-memory session state for the current phase */
     private final PaperTradingSession session = new PaperTradingSession();
 
@@ -30,20 +37,20 @@ public class PaperTradingServiceImpl implements PaperTradingService {
      *
      * @param tradingStrategyResolver strategy resolver
      * @param paperBroker broker implementation
+     * @param marketDataFeed market data feed
      */
     public PaperTradingServiceImpl(
             TradingStrategyResolver tradingStrategyResolver,
-            PaperBroker paperBroker
+            PaperBroker paperBroker,
+            MarketDataFeed marketDataFeed
     ) {
         this.tradingStrategyResolver = tradingStrategyResolver;
         this.paperBroker = paperBroker;
+        this.marketDataFeed = marketDataFeed;
     }
 
     /**
      * Starts a new paper trading session.
-     *
-     * <p>At this phase the method only initializes the session state.
-     * Automatic candle processing is added in the next phase.</p>
      *
      * @param request start request
      * @return current status dto
@@ -66,6 +73,7 @@ public class PaperTradingServiceImpl implements PaperTradingService {
         session.setInterval(request.getInterval());
         session.setStrategyCode(request.getStrategyCode().toUpperCase());
         session.setAccountState(accountState);
+        session.setLastProcessedCandleKey(null);
         session.setLastEventMessage("Paper trading session started");
 
         return toStatusDto();
@@ -125,10 +133,33 @@ public class PaperTradingServiceImpl implements PaperTradingService {
                     0.0,
                     0.0,
                     null,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    null,
                     new ArrayList<>(),
                     session.getLastEventMessage()
             );
         }
+
+        Double currentPrice = resolveCurrentPrice();
+        double unrealizedPnl = calculateUnrealizedPnl(session.getAccountState().getOpenPosition(), currentPrice);
+        double unrealizedPnlPercent = calculateUnrealizedPnlPercent(
+                session.getAccountState().getOpenPosition(),
+                unrealizedPnl
+        );
+        double equity = session.getAccountState().getCurrentBalance() + unrealizedPnl;
+
+        // calculate total pnl relative to initial balance
+        double totalPnl = session.getAccountState().getCurrentBalance()
+                - session.getAccountState().getInitialBalance();
+
+        // calculate total pnl percent
+        double totalPnlPercent = session.getAccountState().getInitialBalance() == 0.0
+                ? 0.0
+                : (totalPnl * 100.0) / session.getAccountState().getInitialBalance();
 
         return new PaperTradingStatusDto(
                 session.getStatus(),
@@ -139,9 +170,76 @@ public class PaperTradingServiceImpl implements PaperTradingService {
                 session.getAccountState().getCurrentBalance(),
                 session.getAccountState().getFeePercent(),
                 session.getAccountState().getLeverage(),
+                currentPrice,
+                unrealizedPnl,
+                unrealizedPnlPercent,
+                equity,
+                totalPnl,
+                totalPnlPercent,
                 session.getAccountState().getOpenPosition(),
                 session.getAccountState().getClosedTrades(),
                 session.getLastEventMessage()
         );
+    }
+
+    /**
+     * Resolves the current market price from the latest closed candle.
+     *
+     * @return current close price or null if session is not active enough
+     */
+    private Double resolveCurrentPrice() {
+        if (session.getTicker() == null || session.getInterval() == null) {
+            return null;
+        }
+
+        try {
+            MarketCandleEvent latestEvent = marketDataFeed.pollLatestClosedCandle(
+                    session.getTicker(),
+                    session.getInterval()
+            );
+            return latestEvent.getCandle().getClose();
+        } catch (Exception exception) {
+            return null;
+        }
+    }
+
+    /**
+     * Calculates unrealized pnl for the currently open position.
+     *
+     * @param openPosition current open position
+     * @param currentPrice latest market price
+     * @return unrealized pnl
+     */
+    private double calculateUnrealizedPnl(
+            PaperTradingPositionDto openPosition,
+            Double currentPrice
+    ) {
+        if (openPosition == null || currentPrice == null) {
+            return 0.0;
+        }
+
+        if (openPosition.getSide() == PaperPositionSide.LONG) {
+            return (currentPrice - openPosition.getEntryPrice()) * openPosition.getQuantity();
+        }
+
+        return (openPosition.getEntryPrice() - currentPrice) * openPosition.getQuantity();
+    }
+
+    /**
+     * Calculates unrealized pnl percent relative to position size.
+     *
+     * @param openPosition current open position
+     * @param unrealizedPnl unrealized pnl value
+     * @return unrealized pnl percent
+     */
+    private double calculateUnrealizedPnlPercent(
+            PaperTradingPositionDto openPosition,
+            double unrealizedPnl
+    ) {
+        if (openPosition == null || openPosition.getPositionSize() == 0.0) {
+            return 0.0;
+        }
+
+        return (unrealizedPnl * 100.0) / openPosition.getPositionSize();
     }
 }

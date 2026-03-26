@@ -31,7 +31,7 @@ public class PaperTradingStatusDto {
     /** Initial session balance */
     private double initialBalance;
 
-    /** Current account balance */
+    /** Current realized account balance */
     private double currentBalance;
 
     /** Trading fee percent */
@@ -39,6 +39,24 @@ public class PaperTradingStatusDto {
 
     /** Trading leverage */
     private double leverage;
+
+    /** Current market price used for status calculations */
+    private Double currentPrice;
+
+    /** Unrealized profit or loss of the open position */
+    private double unrealizedPnl;
+
+    /** Unrealized pnl percent relative to position size */
+    private double unrealizedPnlPercent;
+
+    /** Total account equity = realized balance + unrealized pnl */
+    private double equity;
+
+    /** Total accumulated profit/loss since session start */
+    private double totalPnl;
+
+    /** Total accumulated pnl in percent */
+    private double totalPnlPercent;
 
     /** Currently open position, if any */
     private PaperTradingPositionDto openPosition;
