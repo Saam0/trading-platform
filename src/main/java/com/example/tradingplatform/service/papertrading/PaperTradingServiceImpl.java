@@ -70,6 +70,10 @@ public class PaperTradingServiceImpl implements PaperTradingService {
         accountState.setRiskModelType(request.getRiskModelType());
         accountState.setRiskPercent(request.getRiskPercent());
 
+        // store optional planned prices for stop-based sizing models
+        accountState.setPlannedEntryPrice(request.getPlannedEntryPrice());
+        accountState.setPlannedStopPrice(request.getPlannedStopPrice());
+
         accountState.setClosedTrades(new ArrayList<>());
 
         // initialize the session metadata
