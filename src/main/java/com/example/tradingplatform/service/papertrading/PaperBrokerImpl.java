@@ -3,6 +3,8 @@ package com.example.tradingplatform.service.papertrading;
 import com.example.tradingplatform.dto.PaperTradingPositionDto;
 import com.example.tradingplatform.dto.PaperTradingTradeDto;
 import com.example.tradingplatform.model.PaperPositionSide;
+import com.example.tradingplatform.service.papertrading.risk.PaperTradingPositionSizer;
+import com.example.tradingplatform.service.papertrading.risk.PaperTradingPositionSizerResolver;
 import org.springframework.stereotype.Service;
 
 /**
@@ -14,8 +16,15 @@ import org.springframework.stereotype.Service;
 @Service
 public class PaperBrokerImpl implements PaperBroker {
 
+    /** Resolver used to select the active position sizing model */
+    private final PaperTradingPositionSizerResolver positionSizerResolver;
+
+    public PaperBrokerImpl(PaperTradingPositionSizerResolver positionSizerResolver) {
+        this.positionSizerResolver = positionSizerResolver;
+    }
+
     /**
-     * Opens a long position using current balance and leverage.
+     * Opens a long position using the configured position sizing model.
      *
      * @param state current account state
      * @param price entry price
@@ -36,8 +45,8 @@ public class PaperBrokerImpl implements PaperBroker {
             throw new IllegalStateException("Cannot open LONG because a position is already open");
         }
 
-        // calculate notional exposure using full balance and leverage
-        double positionSize = state.getCurrentBalance() * state.getLeverage();
+        // calculate position size using the configured sizing model
+        double positionSize = calculatePositionSize(state);
 
         // derive quantity from entry price
         double quantity = positionSize / price;
@@ -58,7 +67,7 @@ public class PaperBrokerImpl implements PaperBroker {
     }
 
     /**
-     * Opens a short position using current balance and leverage.
+     * Opens a short position using the configured position sizing model.
      *
      * @param state current account state
      * @param price entry price
@@ -79,8 +88,8 @@ public class PaperBrokerImpl implements PaperBroker {
             throw new IllegalStateException("Cannot open SHORT because a position is already open");
         }
 
-        // calculate notional exposure using full balance and leverage
-        double positionSize = state.getCurrentBalance() * state.getLeverage();
+        // calculate position size using the configured sizing model
+        double positionSize = calculatePositionSize(state);
 
         // derive quantity from entry price
         double quantity = positionSize / price;
@@ -194,6 +203,19 @@ public class PaperBrokerImpl implements PaperBroker {
     @Override
     public PaperPositionSide getOpenSide(PaperTradingAccountState state) {
         return hasOpenPosition(state) ? state.getOpenPosition().getSide() : null;
+    }
+
+    /**
+     * Calculates position size using the configured risk model.
+     *
+     * @param state current account state
+     * @return calculated position size
+     */
+    private double calculatePositionSize(PaperTradingAccountState state) {
+        PaperTradingPositionSizer positionSizer =
+                positionSizerResolver.resolve(state.getRiskModelType());
+
+        return positionSizer.calculatePositionSize(state);
     }
 
     /**

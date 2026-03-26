@@ -65,6 +65,11 @@ public class PaperTradingServiceImpl implements PaperTradingService {
         accountState.setCurrentBalance(request.getInitialBalance());
         accountState.setFeePercent(request.getFeePercent());
         accountState.setLeverage(request.getLeverage());
+
+        // store the selected sizing/risk model configuration in account state
+        accountState.setRiskModelType(request.getRiskModelType());
+        accountState.setRiskPercent(request.getRiskPercent());
+
         accountState.setClosedTrades(new ArrayList<>());
 
         // initialize the session metadata
