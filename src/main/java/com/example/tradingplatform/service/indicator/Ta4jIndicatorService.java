@@ -1,7 +1,7 @@
 package com.example.tradingplatform.service.indicator;
 
 import com.example.tradingplatform.dto.ChandelierExitPoint;
-import com.example.tradingplatform.dto.SmaPoint;
+import com.example.tradingplatform.dto.IndicatorPoint;
 import com.example.tradingplatform.model.Candle;
 import com.example.tradingplatform.service.candle.CandleService;
 import lombok.AllArgsConstructor;
@@ -9,9 +9,11 @@ import org.springframework.stereotype.Service;
 import org.ta4j.core.BarSeries;
 import org.ta4j.core.BaseBar;
 import org.ta4j.core.BaseBarSeriesBuilder;
+import org.ta4j.core.indicators.ATRIndicator;
 import org.ta4j.core.indicators.averages.EMAIndicator;
 import org.ta4j.core.indicators.averages.SMAIndicator;
 import org.ta4j.core.indicators.helpers.ClosePriceIndicator;
+import org.ta4j.core.indicators.helpers.TRIndicator;
 import org.ta4j.core.num.Num;
 
 import java.time.Duration;
@@ -29,14 +31,14 @@ public class Ta4jIndicatorService implements IndicatorService {
 
 
     @Override
-    public List<SmaPoint> getSma(String ticker, String interval, int period, int limit, Long to) {
+    public List<IndicatorPoint> getSma(String ticker, String interval, int period, int limit, Long to) {
         List<Candle> candles = candleService.getCandles(ticker, interval, limit, to);
         BarSeries series = buildSeries(candles, interval);
 
         ClosePriceIndicator closePriceIndicator = new ClosePriceIndicator(series);
         SMAIndicator smaIndicator = new SMAIndicator(closePriceIndicator, period);
 
-        List<SmaPoint> points = new ArrayList<>();
+        List<IndicatorPoint> points = new ArrayList<>();
 
         for (int i = 0; i < series.getBarCount(); i++) {
             if (i < period - 1) {
@@ -46,21 +48,21 @@ public class Ta4jIndicatorService implements IndicatorService {
             Object time = candles.get(i).getTime();
             double value = smaIndicator.getValue(i).doubleValue();
 
-            points.add(new SmaPoint(time, value));
+            points.add(new IndicatorPoint(time, value));
         }
 
         return points;
     }
 
     @Override
-    public List<SmaPoint> getEma(String ticker, String interval, int period, int limit, Long to) {
+    public List<IndicatorPoint> getEma(String ticker, String interval, int period, int limit, Long to) {
         List<Candle> candles = candleService.getCandles(ticker, interval, limit, to);
         BarSeries series = buildSeries(candles, interval);
 
         ClosePriceIndicator closePriceIndicator = new ClosePriceIndicator(series);
         EMAIndicator emaIndicator = new EMAIndicator(closePriceIndicator, period);
 
-        List<SmaPoint> points = new ArrayList<>();
+        List<IndicatorPoint> points = new ArrayList<>();
 
         for (int i = 0; i < series.getBarCount(); i++) {
             if (i < period - 1) {
@@ -70,14 +72,35 @@ public class Ta4jIndicatorService implements IndicatorService {
             Object time = candles.get(i).getTime();
             double value = emaIndicator.getValue(i).doubleValue();
 
-            points.add(new SmaPoint(time, value));
+            points.add(new IndicatorPoint(time, value));
         }
 
         return points;
     }
 
+    @Override
+    public List<IndicatorPoint> getAtr(String ticker, String interval, int period, int limit, Long to) {
+        List<Candle> candles = candleService.getCandles(ticker, interval, limit, to);
+        BarSeries series = buildSeries(candles, interval);
 
+        TRIndicator trIndicator = new TRIndicator(series);
+        ATRIndicator atrIndicator = new ATRIndicator(trIndicator, period);
 
+        List<IndicatorPoint> points = new ArrayList<>();
+
+        for (int i = 0; i < series.getBarCount(); i++) {
+            if (i < period - 1) {
+                continue;
+            }
+
+            Object time = candles.get(i).getTime();
+            double value = atrIndicator.getValue(i).doubleValue();
+
+            points.add(new IndicatorPoint(time, value));
+        }
+
+        return points;
+    }
 
     @Override
     public List<ChandelierExitPoint> getChandelierExit(
@@ -263,18 +286,6 @@ public class Ta4jIndicatorService implements IndicatorService {
         return lowest;
     }
 
-
-
-
-
-
-
-
-
-
-
-
-
     private BarSeries buildSeries(List<Candle> candles, String interval) {
         BarSeries series = new BaseBarSeriesBuilder()
                 .withName("price-series")
@@ -313,6 +324,7 @@ public class Ta4jIndicatorService implements IndicatorService {
                 0L
         );
     }
+
     private Duration mapDuration(String interval) {
         return switch (interval.toLowerCase()) {
             case "m1" -> Duration.ofMinutes(1);

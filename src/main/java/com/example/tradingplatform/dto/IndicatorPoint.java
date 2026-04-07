@@ -7,7 +7,7 @@ import lombok.NoArgsConstructor;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class SmaPoint {
+public class IndicatorPoint {
     private Object time;
     private double value;
 }

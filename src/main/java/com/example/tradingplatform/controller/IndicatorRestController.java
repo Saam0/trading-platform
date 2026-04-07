@@ -1,7 +1,7 @@
 package com.example.tradingplatform.controller;
 
 import com.example.tradingplatform.dto.ChandelierExitPoint;
-import com.example.tradingplatform.dto.SmaPoint;
+import com.example.tradingplatform.dto.IndicatorPoint;
 import com.example.tradingplatform.service.indicator.IndicatorService;
 import lombok.AllArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -16,7 +16,7 @@ public class IndicatorRestController {
     private final IndicatorService indicatorService;
 
     @GetMapping("/api/indicators/sma")
-    public List<SmaPoint> getSma(
+    public List<IndicatorPoint> getSma(
             @RequestParam(defaultValue = "BTCUSDT") String ticker,
             @RequestParam(defaultValue = "d1") String interval,
             @RequestParam(defaultValue = "5") int period,
@@ -27,14 +27,25 @@ public class IndicatorRestController {
     }
 
     @GetMapping("/api/indicators/ema")
-    public List<SmaPoint> getEma(
+    public List<IndicatorPoint> getEma(
             @RequestParam(defaultValue = "BTCUSDT") String ticker,
             @RequestParam(defaultValue = "d1") String interval,
             @RequestParam(defaultValue = "20") int period,
             @RequestParam(defaultValue = "30") int limit,
             @RequestParam(required = false) Long to
     ) {
-        return indicatorService.getEma(ticker, interval, period,  limit, to);
+        return indicatorService.getEma(ticker, interval, period, limit, to);
+    }
+
+    @GetMapping("/api/indicators/atr")
+    public List<IndicatorPoint> getAtr(
+            @RequestParam(defaultValue = "BTCUSDT") String ticker,
+            @RequestParam(defaultValue = "d1") String interval,
+            @RequestParam(defaultValue = "14") int period,
+            @RequestParam(defaultValue = "30") int limit,
+            @RequestParam(required = false) Long to
+    ) {
+        return indicatorService.getAtr(ticker, interval, period, limit, to);
     }
 
     @GetMapping("/api/indicators/chandelier-exit")
