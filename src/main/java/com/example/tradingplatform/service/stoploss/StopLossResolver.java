@@ -11,14 +11,14 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Resolves and delegates stop loss generation to proper generator.
+ * Resolves stop loss generator by type and delegates calculation.
  */
 @Service
-public class StopLossService {
+public class StopLossResolver {
 
     private final Map<StopLossType, StopLossGenerator> generatorsByType;
 
-    public StopLossService(List<StopLossGenerator> generators) {
+    public StopLossResolver(List<StopLossGenerator> generators) {
         this.generatorsByType = new EnumMap<>(StopLossType.class);
 
         for (StopLossGenerator generator : generators) {
@@ -32,7 +32,7 @@ public class StopLossService {
      * @param request stop loss request
      * @return stop loss result
      */
-    public StopLossResult generateStopLoss(StopLossRequest request) {
+    public StopLossResult resolve(StopLossRequest request) {
         if (request == null) {
             throw new InvalidRequestException("Stop loss request is required");
         }

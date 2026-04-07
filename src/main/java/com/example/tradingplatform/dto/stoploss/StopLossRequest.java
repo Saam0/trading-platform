@@ -1,16 +1,24 @@
 package com.example.tradingplatform.dto.stoploss;
 
-import com.example.tradingplatform.model.stoploss.StopLossType;
 import com.example.tradingplatform.model.TradeSide;
+import com.example.tradingplatform.model.stoploss.StopLossType;
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.NotNull;
 
 /**
  * Request object for stop loss generation.
  */
 public class StopLossRequest {
 
+    @NotNull(message = "Stop loss type is required")
     private StopLossType type;
+
+    @NotNull(message = "Trade side is required")
     private TradeSide side;
+
+    @DecimalMin(value = "0.00000001", message = "Entry price must be greater than zero")
     private double entryPrice;
+
     private Double fixedPercent;
     private Double atrValue;
     private Double atrMultiplier;
