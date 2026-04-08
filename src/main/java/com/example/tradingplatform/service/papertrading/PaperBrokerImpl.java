@@ -58,17 +58,17 @@ public class PaperBrokerImpl implements PaperBroker {
             throw new IllegalStateException("Cannot open LONG because a position is already open");
         }
 
-        // calculate position size using the configured sizing model
-        double positionSize = calculatePositionSize(state);
+        double resolvedStopPrice = resolveStopPrice(state, stopPrice, price);
 
-        // derive quantity from entry price
+        updatePlannedPricesForSizing(state, price, resolvedStopPrice);
+
+        double positionSize = calculatePositionSize(state);
         double quantity = positionSize / price;
 
-        // resolve final target price from the configured exit model
         double resolvedTargetPrice = resolveTargetPrice(
                 state,
                 price,
-                stopPrice,
+                resolvedStopPrice,
                 targetPrice,
                 PaperPositionSide.LONG
         );
@@ -78,11 +78,10 @@ public class PaperBrokerImpl implements PaperBroker {
                 price,
                 quantity,
                 positionSize,
-                stopPrice,
+                resolvedStopPrice,
                 resolvedTargetPrice
         );
 
-        // store the newly opened position in account state
         state.setOpenPosition(position);
 
         return position;
@@ -110,17 +109,17 @@ public class PaperBrokerImpl implements PaperBroker {
             throw new IllegalStateException("Cannot open SHORT because a position is already open");
         }
 
-        // calculate position size using the configured sizing model
-        double positionSize = calculatePositionSize(state);
+        double resolvedStopPrice = resolveStopPrice(state, stopPrice, price);
 
-        // derive quantity from entry price
+        updatePlannedPricesForSizing(state, price, resolvedStopPrice);
+
+        double positionSize = calculatePositionSize(state);
         double quantity = positionSize / price;
 
-        // resolve final target price from the configured exit model
         double resolvedTargetPrice = resolveTargetPrice(
                 state,
                 price,
-                stopPrice,
+                resolvedStopPrice,
                 targetPrice,
                 PaperPositionSide.SHORT
         );
@@ -130,11 +129,10 @@ public class PaperBrokerImpl implements PaperBroker {
                 price,
                 quantity,
                 positionSize,
-                stopPrice,
+                resolvedStopPrice,
                 resolvedTargetPrice
         );
 
-        // store the newly opened position in account state
         state.setOpenPosition(position);
 
         return position;
@@ -160,16 +158,10 @@ public class PaperBrokerImpl implements PaperBroker {
 
         PaperTradingPositionDto position = state.getOpenPosition();
 
-        // calculate raw pnl before trading fee
         double grossPnl = calculatePnl(position, price);
-
-        // calculate fee using position notional size
         double fee = calculateFee(position.getPositionSize(), state.getFeePercent());
-
-        // final realized pnl after fee
         double netPnl = grossPnl - fee;
 
-        // update realized account balance
         state.setCurrentBalance(state.getCurrentBalance() + netPnl);
 
         PaperTradingTradeDto trade = new PaperTradingTradeDto(
@@ -183,10 +175,7 @@ public class PaperBrokerImpl implements PaperBroker {
                 reason
         );
 
-        // append trade history
         state.getClosedTrades().add(trade);
-
-        // clear open position after closing
         state.setOpenPosition(null);
 
         return trade;
@@ -250,6 +239,57 @@ public class PaperBrokerImpl implements PaperBroker {
     }
 
     /**
+     * Resolves final stop price.
+     *
+     * <p>Priority:
+     * 1. explicit stop price from strategy
+     * 2. planned stop price from account state
+     * 3. no stop -> 0.0</p>
+     *
+     * @param state current account state
+     * @param stopPrice explicit stop price
+     * @param entryPrice current entry price
+     * @return resolved stop price
+     */
+    private double resolveStopPrice(
+            PaperTradingAccountState state,
+            double stopPrice,
+            double entryPrice
+    ) {
+        if (stopPrice > 0.0) {
+            return stopPrice;
+        }
+
+        if (state.getPlannedStopPrice() != null && state.getPlannedStopPrice() > 0.0) {
+            return state.getPlannedStopPrice();
+        }
+
+        return 0.0;
+    }
+
+    /**
+     * Updates planned prices in account state before sizing.
+     *
+     * <p>This is important for STOP_RISK_PERCENT sizing because the position sizer
+     * reads planned entry and planned stop from account state.</p>
+     *
+     * @param state current account state
+     * @param entryPrice resolved entry price
+     * @param stopPrice resolved stop price
+     */
+    private void updatePlannedPricesForSizing(
+            PaperTradingAccountState state,
+            double entryPrice,
+            double stopPrice
+    ) {
+        state.setPlannedEntryPrice(entryPrice);
+
+        if (stopPrice > 0.0) {
+            state.setPlannedStopPrice(stopPrice);
+        }
+    }
+
+    /**
      * Resolves final target price.
      *
      * <p>If the caller already supplied a target price greater than zero,
@@ -270,12 +310,10 @@ public class PaperBrokerImpl implements PaperBroker {
             double targetPrice,
             PaperPositionSide side
     ) {
-        // explicit target from the caller has the highest priority
         if (targetPrice > 0.0) {
             return targetPrice;
         }
 
-        // if there is no valid stop, RR target cannot be calculated
         if (stopPrice <= 0.0) {
             return 0.0;
         }
