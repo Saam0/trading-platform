@@ -3,6 +3,8 @@ document.addEventListener('DOMContentLoaded', function () {
     const stopBtn = document.getElementById('ptStopBtn');
     const nextCycleBtn = document.getElementById('ptNextCycleBtn');
     const refreshBtn = document.getElementById('ptRefreshBtn');
+    const riskPreviewBtn = document.getElementById('ptRiskPreviewBtn');
+    const useLastCloseBtn = document.getElementById('ptUseLastCloseBtn');
 
     const loadingMessage = document.getElementById('ptLoadingMessage');
     const errorMessage = document.getElementById('ptErrorMessage');
@@ -16,6 +18,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const tickerSelect = document.getElementById('tickerSelect');
     const intervalSelect = document.getElementById('intervalSelect');
+    const lastCloseLabel = document.getElementById('lastCloseLabel');
 
     const ptTickerInput = document.getElementById('ptTickerInput');
     const ptIntervalSelect = document.getElementById('ptIntervalSelect');
@@ -25,6 +28,11 @@ document.addEventListener('DOMContentLoaded', function () {
     const ptPlannedStopInput = document.getElementById('ptPlannedStopInput');
     const ptExitModelSelect = document.getElementById('ptExitModelSelect');
     const ptRiskRewardRatioInput = document.getElementById('ptRiskRewardRatioInput');
+    const ptInitialBalanceInput = document.getElementById('ptInitialBalanceInput');
+    const ptFeePercentInput = document.getElementById('ptFeePercentInput');
+
+    const ptRiskPreviewBlock = document.getElementById('ptRiskPreviewBlock');
+    const ptRiskPreviewEmpty = document.getElementById('ptRiskPreviewEmpty');
 
     function showLoading(message) {
         loadingMessage.textContent = message || 'Processing paper trading request...';
@@ -102,10 +110,14 @@ document.addEventListener('DOMContentLoaded', function () {
         ptRiskPercentInput.disabled = !isStopRisk;
         ptPlannedEntryInput.disabled = !isStopRisk;
         ptPlannedStopInput.disabled = !isStopRisk;
+        riskPreviewBtn.disabled = !isStopRisk;
 
         if (!isStopRisk) {
             ptPlannedEntryInput.value = '';
             ptPlannedStopInput.value = '';
+            ptRiskPreviewBlock.classList.add('d-none');
+            ptRiskPreviewEmpty.classList.remove('d-none');
+            ptRiskPreviewEmpty.textContent = 'Risk preview is available for STOP_RISK_PERCENT mode.';
         }
     }
 
@@ -130,8 +142,8 @@ document.addEventListener('DOMContentLoaded', function () {
             ticker: ptTickerInput.value.trim(),
             interval: ptIntervalSelect.value,
             strategyCode: document.getElementById('ptStrategyCodeInput').value.trim(),
-            initialBalance: Number(document.getElementById('ptInitialBalanceInput').value),
-            feePercent: Number(document.getElementById('ptFeePercentInput').value),
+            initialBalance: Number(ptInitialBalanceInput.value),
+            feePercent: Number(ptFeePercentInput.value),
             leverage: Number(document.getElementById('ptLeverageInput').value),
             riskModelType: ptRiskModelSelect.value,
             riskPercent: Number(ptRiskPercentInput.value),
@@ -312,6 +324,30 @@ document.addEventListener('DOMContentLoaded', function () {
         renderClosedTrades(status.closedTrades);
     }
 
+    function renderRiskPreview(preview) {
+        ptRiskPreviewEmpty.classList.add('d-none');
+        ptRiskPreviewBlock.classList.remove('d-none');
+
+        setHtml('ptPreviewRiskAmount', neutralValueHtml(preview.riskAmount));
+        setHtml('ptPreviewEffectiveRiskPercent', neutralValueHtml(preview.effectiveRiskPercent));
+        setHtml('ptPreviewPositionSize', neutralValueHtml(preview.positionSize));
+        setHtml('ptPreviewQuantity', neutralValueHtml(preview.quantity));
+        setHtml('ptPreviewRequiredLeverage', neutralValueHtml(preview.requiredLeverage));
+        setHtml('ptPreviewStopDistance', neutralValueHtml(preview.stopDistance));
+        setHtml('ptPreviewStopDistancePercent', neutralValueHtml(preview.stopDistancePercent));
+        setHtml('ptPreviewTotalFeePercent', neutralValueHtml(preview.totalFeePercent));
+    }
+
+    function buildRiskPreviewRequest() {
+        return {
+            balance: Number(ptInitialBalanceInput.value),
+            riskPercent: Number(ptRiskPercentInput.value),
+            feePercent: Number(ptFeePercentInput.value),
+            entryPrice: Number(ptPlannedEntryInput.value),
+            stopPrice: Number(ptPlannedStopInput.value)
+        };
+    }
+
     function handleJsonResponse(response) {
         if (!response.ok) {
             return response.json()
@@ -406,6 +442,51 @@ document.addEventListener('DOMContentLoaded', function () {
             });
     }
 
+    function useLastCloseForPlannedEntry() {
+        const value = (lastCloseLabel.textContent || '').replaceAll(',', '').trim();
+
+        if (!value || value === '-') {
+            showError('Last close is not available yet.');
+            return;
+        }
+
+        ptPlannedEntryInput.value = value;
+        clearError();
+    }
+
+    function riskPreview() {
+        if (ptRiskModelSelect.value !== 'STOP_RISK_PERCENT') {
+            showError('Risk preview is available only for STOP_RISK_PERCENT mode.');
+            return;
+        }
+
+        if (!ptPlannedEntryInput.value || !ptPlannedStopInput.value) {
+            showError('Planned entry and planned stop are required for risk preview.');
+            return;
+        }
+
+        showLoading('Calculating risk preview...');
+
+        fetch('/api/paper-trading/risk/preview', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(buildRiskPreviewRequest())
+        })
+            .then(handleJsonResponse)
+            .then(function (preview) {
+                renderRiskPreview(preview);
+                clearError();
+            })
+            .catch(function (error) {
+                showError(error.message);
+            })
+            .finally(function () {
+                hideLoading();
+            });
+    }
+
     if (tickerSelect) {
         tickerSelect.addEventListener('change', syncFromChartControls);
     }
@@ -416,6 +497,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
     ptRiskModelSelect.addEventListener('change', updateRiskModelFields);
     ptExitModelSelect.addEventListener('change', updateExitModelFields);
+
+    useLastCloseBtn.addEventListener('click', useLastCloseForPlannedEntry);
+    riskPreviewBtn.addEventListener('click', riskPreview);
 
     startBtn.addEventListener('click', startSession);
     stopBtn.addEventListener('click', stopSession);
