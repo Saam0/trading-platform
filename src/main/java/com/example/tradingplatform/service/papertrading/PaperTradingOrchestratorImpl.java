@@ -57,51 +57,39 @@ public class PaperTradingOrchestratorImpl implements PaperTradingOrchestrator {
     public void processNextCycle() {
         PaperTradingSession session = paperTradingService.getSession();
 
-        // do nothing if no active session exists
         if (session == null || session.getStatus() != PaperTradingSessionStatus.RUNNING) {
             return;
         }
 
-        // fetch the latest closed candle event
         MarketCandleEvent latestEvent = marketDataFeed.pollLatestClosedCandle(
                 session.getTicker(),
                 session.getInterval()
         );
 
-        // build a unique candle key to avoid processing the same candle twice
         String candleKey = extractCandleKey(latestEvent.getCandle());
 
-        // skip the cycle if this candle was already processed
-        // do not overwrite the last meaningful event message
         if (candleKey.equals(session.getLastProcessedCandleKey())) {
             return;
         }
 
         Candle latestCandle = latestEvent.getCandle();
 
-        // first honor risk management exits for already open positions
         if (tryCloseByRiskLevels(session, latestCandle)) {
             session.setLastProcessedCandleKey(candleKey);
             return;
         }
 
-        // load recent candles for strategy evaluation
         List<Candle> candles = marketDataFeed.getRecentCandles(
                 session.getTicker(),
                 session.getInterval(),
                 STRATEGY_CANDLE_LIMIT
         );
 
-        // resolve the active strategy by code
         TradingStrategy strategy = tradingStrategyResolver.resolve(session.getStrategyCode());
-
-        // ask the strategy what action it wants to take
         StrategyDecision decision = strategy.evaluate(candles, session.getAccountState());
 
-        // apply the strategy decision to the broker/account state
         applyDecision(session, latestCandle, decision);
 
-        // remember the processed candle only after the cycle is fully completed
         session.setLastProcessedCandleKey(candleKey);
     }
 
@@ -119,13 +107,11 @@ public class PaperTradingOrchestratorImpl implements PaperTradingOrchestrator {
     ) {
         double price = latestCandle.getClose();
 
-        // no action requested by the strategy
         if (decision.getAction() == TradingSignalAction.HOLD) {
-            session.setLastEventMessage("HOLD: " + decision.getReason());
+            session.setLastEventMessage("HOLD: " + safeReason(decision.getReason()));
             return;
         }
 
-        // open long only if no position is currently open
         if (decision.getAction() == TradingSignalAction.ENTER_LONG) {
             if (!paperBroker.hasOpenPosition(session.getAccountState())) {
                 paperBroker.openLong(
@@ -135,14 +121,13 @@ public class PaperTradingOrchestratorImpl implements PaperTradingOrchestrator {
                         decision.getSuggestedTargetPrice() != null ? decision.getSuggestedTargetPrice() : 0.0,
                         decision.getReason()
                 );
-                session.setLastEventMessage("Opened LONG: " + decision.getReason());
+                session.setLastEventMessage("OPEN_LONG: " + safeReason(decision.getReason()));
             } else {
-                session.setLastEventMessage("Skipped ENTER_LONG because a position is already open");
+                session.setLastEventMessage("SKIP_ENTER_LONG_POSITION_ALREADY_OPEN");
             }
             return;
         }
 
-        // open short only if no position is currently open
         if (decision.getAction() == TradingSignalAction.ENTER_SHORT) {
             if (!paperBroker.hasOpenPosition(session.getAccountState())) {
                 paperBroker.openShort(
@@ -152,22 +137,32 @@ public class PaperTradingOrchestratorImpl implements PaperTradingOrchestrator {
                         decision.getSuggestedTargetPrice() != null ? decision.getSuggestedTargetPrice() : 0.0,
                         decision.getReason()
                 );
-                session.setLastEventMessage("Opened SHORT: " + decision.getReason());
+                session.setLastEventMessage("OPEN_SHORT: " + safeReason(decision.getReason()));
             } else {
-                session.setLastEventMessage("Skipped ENTER_SHORT because a position is already open");
+                session.setLastEventMessage("SKIP_ENTER_SHORT_POSITION_ALREADY_OPEN");
             }
             return;
         }
 
-        // close long only if the current open side is LONG
         if (decision.getAction() == TradingSignalAction.EXIT_LONG) {
-            closeOpenPositionIfMatchingSide(session, price, PaperPositionSide.LONG, decision.getReason());
+            closeOpenPositionIfMatchingSide(
+                    session,
+                    price,
+                    PaperPositionSide.LONG,
+                    "SIGNAL",
+                    safeReason(decision.getReason())
+            );
             return;
         }
 
-        // close short only if the current open side is SHORT
         if (decision.getAction() == TradingSignalAction.EXIT_SHORT) {
-            closeOpenPositionIfMatchingSide(session, price, PaperPositionSide.SHORT, decision.getReason());
+            closeOpenPositionIfMatchingSide(
+                    session,
+                    price,
+                    PaperPositionSide.SHORT,
+                    "SIGNAL",
+                    safeReason(decision.getReason())
+            );
         }
     }
 
@@ -194,16 +189,14 @@ public class PaperTradingOrchestratorImpl implements PaperTradingOrchestrator {
 
         if (side == PaperPositionSide.LONG) {
             if (stopPrice > 0.0 && candle.getLow() <= stopPrice) {
-                double exitPrice = resolveExitPrice(candle, stopPrice, true, true);
-                paperBroker.closePosition(session.getAccountState(), exitPrice, "STOP_LOSS");
-                session.setLastEventMessage("Closed LONG by STOP_LOSS");
+                paperBroker.closePosition(session.getAccountState(), stopPrice, "STOP_LOSS");
+                session.setLastEventMessage("CLOSE_LONG_STOP_LOSS");
                 return true;
             }
 
             if (targetPrice > 0.0 && candle.getHigh() >= targetPrice) {
-                double exitPrice = resolveExitPrice(candle, targetPrice, false, true);
-                paperBroker.closePosition(session.getAccountState(), exitPrice, "TAKE_PROFIT");
-                session.setLastEventMessage("Closed LONG by TAKE_PROFIT");
+                paperBroker.closePosition(session.getAccountState(), targetPrice, "TAKE_PROFIT");
+                session.setLastEventMessage("CLOSE_LONG_TAKE_PROFIT");
                 return true;
             }
 
@@ -211,41 +204,18 @@ public class PaperTradingOrchestratorImpl implements PaperTradingOrchestrator {
         }
 
         if (stopPrice > 0.0 && candle.getHigh() >= stopPrice) {
-            double exitPrice = resolveExitPrice(candle, stopPrice, true, false);
-            paperBroker.closePosition(session.getAccountState(), exitPrice, "STOP_LOSS");
-            session.setLastEventMessage("Closed SHORT by STOP_LOSS");
+            paperBroker.closePosition(session.getAccountState(), stopPrice, "STOP_LOSS");
+            session.setLastEventMessage("CLOSE_SHORT_STOP_LOSS");
             return true;
         }
 
         if (targetPrice > 0.0 && candle.getLow() <= targetPrice) {
-            double exitPrice = resolveExitPrice(candle, targetPrice, false, false);
-            paperBroker.closePosition(session.getAccountState(), exitPrice, "TAKE_PROFIT");
-            session.setLastEventMessage("Closed SHORT by TAKE_PROFIT");
+            paperBroker.closePosition(session.getAccountState(), targetPrice, "TAKE_PROFIT");
+            session.setLastEventMessage("CLOSE_SHORT_TAKE_PROFIT");
             return true;
         }
 
         return false;
-    }
-
-    /**
-     * Resolves exit price for candle-based stop/target execution.
-     *
-     * <p>In this phase we use the planned stop/target level itself as the fill price
-     * once the candle proves that level was touched.</p>
-     *
-     * @param candle latest closed candle
-     * @param level stop or target level
-     * @param stopExit whether the exit is by stop
-     * @param longSide whether the position is long
-     * @return resolved exit price
-     */
-    private double resolveExitPrice(
-            Candle candle,
-            double level,
-            boolean stopExit,
-            boolean longSide
-    ) {
-        return level;
     }
 
     /**
@@ -254,26 +224,42 @@ public class PaperTradingOrchestratorImpl implements PaperTradingOrchestrator {
      * @param session active paper trading session
      * @param price exit price
      * @param expectedSide side required for closing
-     * @param reason close reason
+     * @param closeSource close source type
+     * @param reason close reason text
      */
     private void closeOpenPositionIfMatchingSide(
             PaperTradingSession session,
             double price,
             PaperPositionSide expectedSide,
+            String closeSource,
             String reason
     ) {
         if (!paperBroker.hasOpenPosition(session.getAccountState())) {
-            session.setLastEventMessage("Skipped close because no open position exists");
+            session.setLastEventMessage("SKIP_CLOSE_NO_OPEN_POSITION");
             return;
         }
 
         if (paperBroker.getOpenSide(session.getAccountState()) != expectedSide) {
-            session.setLastEventMessage("Skipped close because open side does not match " + expectedSide);
+            session.setLastEventMessage("SKIP_CLOSE_SIDE_MISMATCH_" + expectedSide.name());
             return;
         }
 
         paperBroker.closePosition(session.getAccountState(), price, reason);
-        session.setLastEventMessage("Closed " + expectedSide + ": " + reason);
+        session.setLastEventMessage("CLOSE_" + expectedSide.name() + "_" + closeSource + ": " + reason);
+    }
+
+    /**
+     * Returns a non-empty human-readable reason.
+     *
+     * @param reason raw reason
+     * @return normalized reason
+     */
+    private String safeReason(String reason) {
+        if (reason == null || reason.isBlank()) {
+            return "NO_REASON";
+        }
+
+        return reason;
     }
 
     /**

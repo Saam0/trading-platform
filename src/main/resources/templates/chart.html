@@ -557,10 +557,313 @@
                 </div>
             </div>
         </div>
+
+        <!-- NEW: Paper Trading Panel -->
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header">
+                    <strong>Paper Trading</strong>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3 align-items-end">
+                        <div class="col-md-2">
+                            <label class="form-label" for="ptTickerInput">Ticker</label>
+                            <input type="text" class="form-control" id="ptTickerInput" value="BTCUSDT">
+                        </div>
+
+                        <div class="col-md-2">
+                            <label class="form-label" for="ptIntervalSelect">Interval</label>
+                            <select class="form-select" id="ptIntervalSelect">
+                                <option value="d1">1 Day</option>
+                                <option value="h4">4 Hours</option>
+                                <option value="h1" selected>1 Hour</option>
+                                <option value="m15">15 Minutes</option>
+                                <option value="m5">5 Minutes</option>
+                                <option value="m1">1 Minute</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-2">
+                            <label class="form-label" for="ptStrategyCodeInput">Strategy Code</label>
+                            <input type="text" class="form-control" id="ptStrategyCodeInput" value="OPEN_CLOSE">
+                        </div>
+
+                        <div class="col-md-2">
+                            <label class="form-label" for="ptInitialBalanceInput">Initial Balance</label>
+                            <input type="number" class="form-control" id="ptInitialBalanceInput" value="1000" min="1" step="0.01">
+                        </div>
+
+                        <div class="col-md-2">
+                            <label class="form-label" for="ptFeePercentInput">Fee %</label>
+                            <input type="number" class="form-control" id="ptFeePercentInput" value="0.1" min="0" step="0.001">
+                        </div>
+
+                        <div class="col-md-2">
+                            <label class="form-label" for="ptLeverageInput">Leverage</label>
+                            <input type="number" class="form-control" id="ptLeverageInput" value="1.0" min="1" step="0.1">
+                        </div>
+
+                        <div class="col-md-2">
+                            <label class="form-label" for="ptRiskModelSelect">Risk Model</label>
+                            <select class="form-select" id="ptRiskModelSelect">
+                                <option value="FULL_BALANCE">FULL_BALANCE</option>
+                                <option value="STOP_RISK_PERCENT">STOP_RISK_PERCENT</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-2">
+                            <label class="form-label" for="ptRiskPercentInput">Risk %</label>
+                            <input type="number" class="form-control" id="ptRiskPercentInput" value="1.0" min="0" step="0.01">
+                        </div>
+
+                        <div class="col-md-2">
+                            <label class="form-label" for="ptPlannedEntryInput">Planned Entry</label>
+                            <input type="number" class="form-control" id="ptPlannedEntryInput" placeholder="optional" min="0" step="0.0001">
+                        </div>
+
+                        <div class="col-md-2">
+                            <label class="form-label" for="ptPlannedStopInput">Planned Stop</label>
+                            <input type="number" class="form-control" id="ptPlannedStopInput" placeholder="optional" min="0" step="0.0001">
+                        </div>
+
+                        <div class="col-md-2">
+                            <label class="form-label" for="ptExitModelSelect">Exit Model</label>
+                            <select class="form-select" id="ptExitModelSelect">
+                                <option value="SIGNAL_ONLY">SIGNAL_ONLY</option>
+                                <option value="FIXED_RR">FIXED_RR</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-2">
+                            <label class="form-label" for="ptRiskRewardRatioInput">Risk Reward Ratio</label>
+                            <input type="number" class="form-control" id="ptRiskRewardRatioInput" value="3.0" min="0" step="0.1">
+                        </div>
+
+                        <div class="col-md-2 d-grid">
+                            <button class="btn btn-success" id="ptStartBtn" type="button">Start</button>
+                        </div>
+
+                        <div class="col-md-2 d-grid">
+                            <button class="btn btn-danger" id="ptStopBtn" type="button">Stop</button>
+                        </div>
+
+                        <div class="col-md-2 d-grid">
+                            <button class="btn btn-primary" id="ptNextCycleBtn" type="button">Next Cycle</button>
+                        </div>
+
+                        <div class="col-md-2 d-grid">
+                            <button class="btn btn-outline-secondary" id="ptRefreshBtn" type="button">Refresh Status</button>
+                        </div>
+                    </div>
+
+                    <div class="mt-3">
+                        <div id="ptLoadingMessage" class="alert alert-info d-none mb-2" role="alert">
+                            Processing paper trading request...
+                        </div>
+
+                        <div id="ptErrorMessage" class="alert alert-danger d-none mb-2" role="alert">
+                            Paper trading request failed.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- NEW: Paper Trading Status -->
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header">
+                    <strong>Paper Trading Status</strong>
+                </div>
+                <div class="card-body">
+                    <div id="ptStatusEmpty" class="text-muted">
+                        No paper trading session status yet.
+                    </div>
+
+                    <div id="ptStatusBlock" class="d-none">
+                        <div class="row g-3">
+                            <div class="col-md-3">
+                                <div class="border rounded p-3 bg-light h-100">
+                                    <div class="text-muted small">Session Status</div>
+                                    <div class="fw-semibold" id="ptStatusValue">-</div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-3">
+                                <div class="border rounded p-3 bg-light h-100">
+                                    <div class="text-muted small">Ticker / Interval</div>
+                                    <div class="fw-semibold" id="ptTickerIntervalValue">-</div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-3">
+                                <div class="border rounded p-3 bg-light h-100">
+                                    <div class="text-muted small">Strategy</div>
+                                    <div class="fw-semibold" id="ptStrategyValue">-</div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-3">
+                                <div class="border rounded p-3 bg-light h-100">
+                                    <div class="text-muted small">Last Event</div>
+                                    <div class="fw-semibold" id="ptLastEventValue">-</div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-2">
+                                <div class="border rounded p-3 bg-light h-100">
+                                    <div class="text-muted small">Initial Balance</div>
+                                    <div class="fw-semibold" id="ptInitialBalanceValue">-</div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-2">
+                                <div class="border rounded p-3 bg-light h-100">
+                                    <div class="text-muted small">Current Balance</div>
+                                    <div class="fw-semibold" id="ptCurrentBalanceValue">-</div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-2">
+                                <div class="border rounded p-3 bg-light h-100">
+                                    <div class="text-muted small">Current Price</div>
+                                    <div class="fw-semibold" id="ptCurrentPriceValue">-</div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-2">
+                                <div class="border rounded p-3 bg-light h-100">
+                                    <div class="text-muted small">Equity</div>
+                                    <div class="fw-semibold" id="ptEquityValue">-</div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-2">
+                                <div class="border rounded p-3 bg-light h-100">
+                                    <div class="text-muted small">Unrealized PnL</div>
+                                    <div class="fw-semibold" id="ptUnrealizedPnlValue">-</div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-2">
+                                <div class="border rounded p-3 bg-light h-100">
+                                    <div class="text-muted small">Total PnL</div>
+                                    <div class="fw-semibold" id="ptTotalPnlValue">-</div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-2">
+                                <div class="border rounded p-3 bg-light h-100">
+                                    <div class="text-muted small">Fee %</div>
+                                    <div class="fw-semibold" id="ptFeePercentValue">-</div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-2">
+                                <div class="border rounded p-3 bg-light h-100">
+                                    <div class="text-muted small">Leverage</div>
+                                    <div class="fw-semibold" id="ptLeverageValue">-</div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-2">
+                                <div class="border rounded p-3 bg-light h-100">
+                                    <div class="text-muted small">Required Leverage</div>
+                                    <div class="fw-semibold" id="ptRequiredLeverageValue">-</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <hr class="my-4">
+
+                        <h6>Open Position</h6>
+                        <div id="ptOpenPositionEmpty" class="text-muted mb-3">
+                            No open position.
+                        </div>
+
+                        <div id="ptOpenPositionBlock" class="d-none">
+                            <div class="row g-3">
+                                <div class="col-md-2">
+                                    <div class="border rounded p-3 bg-light h-100">
+                                        <div class="text-muted small">Side</div>
+                                        <div class="fw-semibold" id="ptOpenSideValue">-</div>
+                                    </div>
+                                </div>
+
+                                <div class="col-md-2">
+                                    <div class="border rounded p-3 bg-light h-100">
+                                        <div class="text-muted small">Entry Price</div>
+                                        <div class="fw-semibold" id="ptOpenEntryPriceValue">-</div>
+                                    </div>
+                                </div>
+
+                                <div class="col-md-2">
+                                    <div class="border rounded p-3 bg-light h-100">
+                                        <div class="text-muted small">Quantity</div>
+                                        <div class="fw-semibold" id="ptOpenQuantityValue">-</div>
+                                    </div>
+                                </div>
+
+                                <div class="col-md-2">
+                                    <div class="border rounded p-3 bg-light h-100">
+                                        <div class="text-muted small">Position Size</div>
+                                        <div class="fw-semibold" id="ptOpenPositionSizeValue">-</div>
+                                    </div>
+                                </div>
+
+                                <div class="col-md-2">
+                                    <div class="border rounded p-3 bg-light h-100">
+                                        <div class="text-muted small">Stop Price</div>
+                                        <div class="fw-semibold" id="ptOpenStopPriceValue">-</div>
+                                    </div>
+                                </div>
+
+                                <div class="col-md-2">
+                                    <div class="border rounded p-3 bg-light h-100">
+                                        <div class="text-muted small">Target Price</div>
+                                        <div class="fw-semibold" id="ptOpenTargetPriceValue">-</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <hr class="my-4">
+
+                        <h6>Closed Trades</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-striped align-middle mb-0">
+                                <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Side</th>
+                                    <th>Entry Price</th>
+                                    <th>Exit Price</th>
+                                    <th>Quantity</th>
+                                    <th>Position Size</th>
+                                    <th>Fee</th>
+                                    <th>PnL</th>
+                                    <th>Reason</th>
+                                </tr>
+                                </thead>
+                                <tbody id="ptClosedTradesBody">
+                                <tr>
+                                    <td colspan="9" class="text-center text-muted">
+                                        No closed trades yet.
+                                    </td>
+                                </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- END: Paper Trading Panel -->
     </div>
 </div>
 
 <script src="/js/chart.js?v=3"></script>
 <script src="/js/backtest.js?v=4"></script>
+<script src="/js/paper-trading.js?v=1"></script>
 </body>
 </html>
