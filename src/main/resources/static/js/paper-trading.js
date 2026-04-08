@@ -69,6 +69,13 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+    function setHtml(id, html) {
+        const element = document.getElementById(id);
+        if (element) {
+            element.innerHTML = html;
+        }
+    }
+
     function readOptionalNumber(inputId) {
         const value = document.getElementById(inputId).value.trim();
 
@@ -135,6 +142,102 @@ document.addEventListener('DOMContentLoaded', function () {
         };
     }
 
+    function badgeHtml(text, badgeClass) {
+        return '<span class="badge ' + badgeClass + '">' + text + '</span>';
+    }
+
+    function statusBadge(status) {
+        if (status === 'RUNNING') {
+            return badgeHtml('RUNNING', 'text-bg-success');
+        }
+
+        if (status === 'STOPPED') {
+            return badgeHtml('STOPPED', 'text-bg-secondary');
+        }
+
+        return badgeHtml(status || '-', 'text-bg-light');
+    }
+
+    function sideBadge(side) {
+        if (side === 'LONG') {
+            return badgeHtml('LONG', 'text-bg-success');
+        }
+
+        if (side === 'SHORT') {
+            return badgeHtml('SHORT', 'text-bg-danger');
+        }
+
+        return badgeHtml(side || '-', 'text-bg-light');
+    }
+
+    function eventBadge(message) {
+        if (!message) {
+            return badgeHtml('-', 'text-bg-light');
+        }
+
+        if (message.startsWith('OPEN_LONG')) {
+            return badgeHtml(formatEventMessage(message), 'text-bg-success');
+        }
+
+        if (message.startsWith('OPEN_SHORT')) {
+            return badgeHtml(formatEventMessage(message), 'text-bg-danger');
+        }
+
+        if (message.includes('TAKE_PROFIT')) {
+            return badgeHtml(formatEventMessage(message), 'text-bg-success');
+        }
+
+        if (message.includes('STOP_LOSS')) {
+            return badgeHtml(formatEventMessage(message), 'text-bg-danger');
+        }
+
+        if (message.startsWith('HOLD')) {
+            return badgeHtml(formatEventMessage(message), 'text-bg-secondary');
+        }
+
+        if (message.startsWith('SKIP')) {
+            return badgeHtml(formatEventMessage(message), 'text-bg-warning');
+        }
+
+        if (message.startsWith('CLOSE_')) {
+            return badgeHtml(formatEventMessage(message), 'text-bg-primary');
+        }
+
+        return badgeHtml(formatEventMessage(message), 'text-bg-light');
+    }
+
+    function signedValueHtml(value) {
+        const numericValue = Number(value);
+
+        if (Number.isNaN(numericValue)) {
+            return '<span>' + formatNumber(value) + '</span>';
+        }
+
+        if (numericValue > 0) {
+            return '<span class="text-success fw-semibold">' + formatNumber(numericValue) + '</span>';
+        }
+
+        if (numericValue < 0) {
+            return '<span class="text-danger fw-semibold">' + formatNumber(numericValue) + '</span>';
+        }
+
+        return '<span class="fw-semibold">' + formatNumber(numericValue) + '</span>';
+    }
+
+    function neutralValueHtml(value) {
+        return '<span class="fw-semibold">' + formatNumber(value) + '</span>';
+    }
+
+    function optionalPriceHtml(value) {
+        const numericValue = Number(value);
+
+        if (!value || Number.isNaN(numericValue) || numericValue === 0) {
+            return '<span class="text-muted">-</span>';
+        }
+
+        return '<span class="fw-semibold">' + formatNumber(numericValue) + '</span>';
+    }
+
     function renderClosedTrades(closedTrades) {
         if (!closedTrades || closedTrades.length === 0) {
             closedTradesBody.innerHTML = `
@@ -146,17 +249,23 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         closedTradesBody.innerHTML = closedTrades.map(function (trade, index) {
+            const pnlClass = Number(trade.pnl) > 0
+                ? 'text-success fw-semibold'
+                : Number(trade.pnl) < 0
+                    ? 'text-danger fw-semibold'
+                    : 'fw-semibold';
+
             return `
                 <tr>
                     <td>${index + 1}</td>
-                    <td>${trade.side ?? '-'}</td>
+                    <td>${sideBadge(trade.side ?? '-')}</td>
                     <td>${formatNumber(trade.entryPrice)}</td>
                     <td>${formatNumber(trade.exitPrice)}</td>
                     <td>${formatNumber(trade.quantity)}</td>
                     <td>${formatNumber(trade.positionSize)}</td>
                     <td>${formatNumber(trade.fee)}</td>
-                    <td>${formatNumber(trade.pnl)}</td>
-                    <td>${trade.reason ?? '-'}</td>
+                    <td><span class="${pnlClass}">${formatNumber(trade.pnl)}</span></td>
+                    <td>${formatEventMessage(trade.reason ?? '-')}</td>
                 </tr>
             `;
         }).join('');
@@ -172,32 +281,32 @@ document.addEventListener('DOMContentLoaded', function () {
         openPositionEmpty.classList.add('d-none');
         openPositionBlock.classList.remove('d-none');
 
-        setText('ptOpenSideValue', openPosition.side ?? '-');
-        setText('ptOpenEntryPriceValue', formatNumber(openPosition.entryPrice));
-        setText('ptOpenQuantityValue', formatNumber(openPosition.quantity));
-        setText('ptOpenPositionSizeValue', formatNumber(openPosition.positionSize));
-        setText('ptOpenStopPriceValue', formatNumber(openPosition.stopPrice));
-        setText('ptOpenTargetPriceValue', formatNumber(openPosition.targetPrice));
+        setHtml('ptOpenSideValue', sideBadge(openPosition.side ?? '-'));
+        setHtml('ptOpenEntryPriceValue', neutralValueHtml(openPosition.entryPrice));
+        setHtml('ptOpenQuantityValue', neutralValueHtml(openPosition.quantity));
+        setHtml('ptOpenPositionSizeValue', neutralValueHtml(openPosition.positionSize));
+        setHtml('ptOpenStopPriceValue', optionalPriceHtml(openPosition.stopPrice));
+        setHtml('ptOpenTargetPriceValue', optionalPriceHtml(openPosition.targetPrice));
     }
 
     function renderStatus(status) {
         statusEmpty.classList.add('d-none');
         statusBlock.classList.remove('d-none');
 
-        setText('ptStatusValue', status.status ?? '-');
+        setHtml('ptStatusValue', statusBadge(status.status));
         setText('ptTickerIntervalValue', (status.ticker ?? '-') + ' / ' + (status.interval ?? '-'));
         setText('ptStrategyValue', status.strategyCode ?? '-');
-        setText('ptLastEventValue', formatEventMessage(status.lastEventMessage));
+        setHtml('ptLastEventValue', eventBadge(status.lastEventMessage));
 
-        setText('ptInitialBalanceValue', formatNumber(status.initialBalance));
-        setText('ptCurrentBalanceValue', formatNumber(status.currentBalance));
-        setText('ptCurrentPriceValue', formatNumber(status.currentPrice));
-        setText('ptEquityValue', formatNumber(status.equity));
-        setText('ptUnrealizedPnlValue', formatNumber(status.unrealizedPnl));
-        setText('ptTotalPnlValue', formatNumber(status.totalPnl));
-        setText('ptFeePercentValue', formatNumber(status.feePercent));
-        setText('ptLeverageValue', formatNumber(status.leverage));
-        setText('ptRequiredLeverageValue', formatNumber(status.requiredLeverage));
+        setHtml('ptInitialBalanceValue', neutralValueHtml(status.initialBalance));
+        setHtml('ptCurrentBalanceValue', neutralValueHtml(status.currentBalance));
+        setHtml('ptCurrentPriceValue', neutralValueHtml(status.currentPrice));
+        setHtml('ptEquityValue', neutralValueHtml(status.equity));
+        setHtml('ptUnrealizedPnlValue', signedValueHtml(status.unrealizedPnl));
+        setHtml('ptTotalPnlValue', signedValueHtml(status.totalPnl));
+        setHtml('ptFeePercentValue', neutralValueHtml(status.feePercent));
+        setHtml('ptLeverageValue', neutralValueHtml(status.leverage));
+        setHtml('ptRequiredLeverageValue', neutralValueHtml(status.requiredLeverage));
 
         renderOpenPosition(status.openPosition);
         renderClosedTrades(status.closedTrades);
