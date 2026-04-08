@@ -1,5 +1,6 @@
 package com.example.tradingplatform.service.papertrading;
 
+import com.example.tradingplatform.dto.PaperTradingPositionDto;
 import com.example.tradingplatform.dto.StrategyDecision;
 import com.example.tradingplatform.model.Candle;
 import com.example.tradingplatform.model.PaperPositionSide;
@@ -76,6 +77,14 @@ public class PaperTradingOrchestratorImpl implements PaperTradingOrchestrator {
             return;
         }
 
+        Candle latestCandle = latestEvent.getCandle();
+
+        // first honor risk management exits for already open positions
+        if (tryCloseByRiskLevels(session, latestCandle)) {
+            session.setLastProcessedCandleKey(candleKey);
+            return;
+        }
+
         // load recent candles for strategy evaluation
         List<Candle> candles = marketDataFeed.getRecentCandles(
                 session.getTicker(),
@@ -90,7 +99,7 @@ public class PaperTradingOrchestratorImpl implements PaperTradingOrchestrator {
         StrategyDecision decision = strategy.evaluate(candles, session.getAccountState());
 
         // apply the strategy decision to the broker/account state
-        applyDecision(session, latestEvent.getCandle(), decision);
+        applyDecision(session, latestCandle, decision);
 
         // remember the processed candle only after the cycle is fully completed
         session.setLastProcessedCandleKey(candleKey);
@@ -160,6 +169,83 @@ public class PaperTradingOrchestratorImpl implements PaperTradingOrchestrator {
         if (decision.getAction() == TradingSignalAction.EXIT_SHORT) {
             closeOpenPositionIfMatchingSide(session, price, PaperPositionSide.SHORT, decision.getReason());
         }
+    }
+
+    /**
+     * Tries to close the current open position by stop or target hit.
+     *
+     * <p>Priority is conservative:
+     * stop is checked before target if both are touched within the same candle.</p>
+     *
+     * @param session active paper trading session
+     * @param candle latest closed candle
+     * @return true if the position was closed
+     */
+    private boolean tryCloseByRiskLevels(PaperTradingSession session, Candle candle) {
+        if (!paperBroker.hasOpenPosition(session.getAccountState())) {
+            return false;
+        }
+
+        PaperTradingPositionDto position = session.getAccountState().getOpenPosition();
+        PaperPositionSide side = position.getSide();
+
+        double stopPrice = position.getStopPrice();
+        double targetPrice = position.getTargetPrice();
+
+        if (side == PaperPositionSide.LONG) {
+            if (stopPrice > 0.0 && candle.getLow() <= stopPrice) {
+                double exitPrice = resolveExitPrice(candle, stopPrice, true, true);
+                paperBroker.closePosition(session.getAccountState(), exitPrice, "STOP_LOSS");
+                session.setLastEventMessage("Closed LONG by STOP_LOSS");
+                return true;
+            }
+
+            if (targetPrice > 0.0 && candle.getHigh() >= targetPrice) {
+                double exitPrice = resolveExitPrice(candle, targetPrice, false, true);
+                paperBroker.closePosition(session.getAccountState(), exitPrice, "TAKE_PROFIT");
+                session.setLastEventMessage("Closed LONG by TAKE_PROFIT");
+                return true;
+            }
+
+            return false;
+        }
+
+        if (stopPrice > 0.0 && candle.getHigh() >= stopPrice) {
+            double exitPrice = resolveExitPrice(candle, stopPrice, true, false);
+            paperBroker.closePosition(session.getAccountState(), exitPrice, "STOP_LOSS");
+            session.setLastEventMessage("Closed SHORT by STOP_LOSS");
+            return true;
+        }
+
+        if (targetPrice > 0.0 && candle.getLow() <= targetPrice) {
+            double exitPrice = resolveExitPrice(candle, targetPrice, false, false);
+            paperBroker.closePosition(session.getAccountState(), exitPrice, "TAKE_PROFIT");
+            session.setLastEventMessage("Closed SHORT by TAKE_PROFIT");
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Resolves exit price for candle-based stop/target execution.
+     *
+     * <p>In this phase we use the planned stop/target level itself as the fill price
+     * once the candle proves that level was touched.</p>
+     *
+     * @param candle latest closed candle
+     * @param level stop or target level
+     * @param stopExit whether the exit is by stop
+     * @param longSide whether the position is long
+     * @return resolved exit price
+     */
+    private double resolveExitPrice(
+            Candle candle,
+            double level,
+            boolean stopExit,
+            boolean longSide
+    ) {
+        return level;
     }
 
     /**
