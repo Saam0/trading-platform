@@ -14,6 +14,18 @@ document.addEventListener('DOMContentLoaded', function () {
     const openPositionBlock = document.getElementById('ptOpenPositionBlock');
     const closedTradesBody = document.getElementById('ptClosedTradesBody');
 
+    const tickerSelect = document.getElementById('tickerSelect');
+    const intervalSelect = document.getElementById('intervalSelect');
+
+    const ptTickerInput = document.getElementById('ptTickerInput');
+    const ptIntervalSelect = document.getElementById('ptIntervalSelect');
+    const ptRiskModelSelect = document.getElementById('ptRiskModelSelect');
+    const ptRiskPercentInput = document.getElementById('ptRiskPercentInput');
+    const ptPlannedEntryInput = document.getElementById('ptPlannedEntryInput');
+    const ptPlannedStopInput = document.getElementById('ptPlannedStopInput');
+    const ptExitModelSelect = document.getElementById('ptExitModelSelect');
+    const ptRiskRewardRatioInput = document.getElementById('ptRiskRewardRatioInput');
+
     function showLoading(message) {
         loadingMessage.textContent = message || 'Processing paper trading request...';
         loadingMessage.classList.remove('d-none');
@@ -67,20 +79,59 @@ document.addEventListener('DOMContentLoaded', function () {
         return Number(value);
     }
 
+    function syncFromChartControls() {
+        if (tickerSelect && ptTickerInput) {
+            ptTickerInput.value = tickerSelect.value;
+        }
+
+        if (intervalSelect && ptIntervalSelect) {
+            ptIntervalSelect.value = intervalSelect.value;
+        }
+    }
+
+    function updateRiskModelFields() {
+        const isStopRisk = ptRiskModelSelect.value === 'STOP_RISK_PERCENT';
+
+        ptRiskPercentInput.disabled = !isStopRisk;
+        ptPlannedEntryInput.disabled = !isStopRisk;
+        ptPlannedStopInput.disabled = !isStopRisk;
+
+        if (!isStopRisk) {
+            ptPlannedEntryInput.value = '';
+            ptPlannedStopInput.value = '';
+        }
+    }
+
+    function updateExitModelFields() {
+        const isFixedRr = ptExitModelSelect.value === 'FIXED_RR';
+        ptRiskRewardRatioInput.disabled = !isFixedRr;
+    }
+
+    function formatEventMessage(message) {
+        if (!message) {
+            return '-';
+        }
+
+        return message
+            .replaceAll('_', ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+    }
+
     function buildStartRequest() {
         return {
-            ticker: document.getElementById('ptTickerInput').value.trim(),
-            interval: document.getElementById('ptIntervalSelect').value,
+            ticker: ptTickerInput.value.trim(),
+            interval: ptIntervalSelect.value,
             strategyCode: document.getElementById('ptStrategyCodeInput').value.trim(),
             initialBalance: Number(document.getElementById('ptInitialBalanceInput').value),
             feePercent: Number(document.getElementById('ptFeePercentInput').value),
             leverage: Number(document.getElementById('ptLeverageInput').value),
-            riskModelType: document.getElementById('ptRiskModelSelect').value,
-            riskPercent: Number(document.getElementById('ptRiskPercentInput').value),
+            riskModelType: ptRiskModelSelect.value,
+            riskPercent: Number(ptRiskPercentInput.value),
             plannedEntryPrice: readOptionalNumber('ptPlannedEntryInput'),
             plannedStopPrice: readOptionalNumber('ptPlannedStopInput'),
-            exitModelType: document.getElementById('ptExitModelSelect').value,
-            riskRewardRatio: Number(document.getElementById('ptRiskRewardRatioInput').value)
+            exitModelType: ptExitModelSelect.value,
+            riskRewardRatio: Number(ptRiskRewardRatioInput.value)
         };
     }
 
@@ -136,7 +187,7 @@ document.addEventListener('DOMContentLoaded', function () {
         setText('ptStatusValue', status.status ?? '-');
         setText('ptTickerIntervalValue', (status.ticker ?? '-') + ' / ' + (status.interval ?? '-'));
         setText('ptStrategyValue', status.strategyCode ?? '-');
-        setText('ptLastEventValue', status.lastEventMessage ?? '-');
+        setText('ptLastEventValue', formatEventMessage(status.lastEventMessage));
 
         setText('ptInitialBalanceValue', formatNumber(status.initialBalance));
         setText('ptCurrentBalanceValue', formatNumber(status.currentBalance));
@@ -246,10 +297,24 @@ document.addEventListener('DOMContentLoaded', function () {
             });
     }
 
+    if (tickerSelect) {
+        tickerSelect.addEventListener('change', syncFromChartControls);
+    }
+
+    if (intervalSelect) {
+        intervalSelect.addEventListener('change', syncFromChartControls);
+    }
+
+    ptRiskModelSelect.addEventListener('change', updateRiskModelFields);
+    ptExitModelSelect.addEventListener('change', updateExitModelFields);
+
     startBtn.addEventListener('click', startSession);
     stopBtn.addEventListener('click', stopSession);
     nextCycleBtn.addEventListener('click', runNextCycle);
     refreshBtn.addEventListener('click', refreshStatus);
 
+    syncFromChartControls();
+    updateRiskModelFields();
+    updateExitModelFields();
     refreshStatus();
 });
